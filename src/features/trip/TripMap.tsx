@@ -10,6 +10,42 @@ interface RouteFallbackProps {
 }
 
 export const MAP_MARKER_SIZE = 44;
+export const MAP_LOAD_ROOT_MARGIN = "300px";
+
+let leafletStylesPromise: Promise<void> | null = null;
+
+function ensureLeafletStyles() {
+  if (typeof document === "undefined") return Promise.resolve();
+  if (leafletStylesPromise) return leafletStylesPromise;
+
+  leafletStylesPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLLinkElement>("link[data-leaflet-styles]");
+    if (existing?.sheet) {
+      resolve();
+      return;
+    }
+
+    const link = existing ?? document.createElement("link");
+    link.addEventListener("load", () => resolve(), { once: true });
+    link.addEventListener(
+      "error",
+      () => {
+        leafletStylesPromise = null;
+        reject(new Error("Leaflet styles failed to load"));
+      },
+      { once: true },
+    );
+
+    if (!existing) {
+      link.rel = "stylesheet";
+      link.href = "/assets/leaflet.css";
+      link.dataset.leafletStyles = "";
+      document.head.appendChild(link);
+    }
+  });
+
+  return leafletStylesPromise;
+}
 
 export function RouteFallback({ stops, selectedId, onSelect }: RouteFallbackProps) {
   return (
@@ -49,9 +85,32 @@ export function TripMap({ stops, selectedId, onSelect }: TripMapProps) {
   const isSelected = useEffectEvent((id: string) => id === selectedId);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(false);
 
   useEffect(() => {
-    if (!containerRef.current || failed) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      const timeoutId = window.setTimeout(() => setShouldLoad(true), 0);
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: MAP_LOAD_ROOT_MARGIN },
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current || failed || !shouldLoad) return;
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let mapInstance: import("leaflet").Map | undefined;
@@ -60,7 +119,7 @@ export function TripMap({ stops, selectedId, onSelect }: TripMapProps) {
 
     async function setupMap() {
       try {
-        const L = await import("leaflet");
+        const [L] = await Promise.all([import("leaflet"), ensureLeafletStyles()]);
         if (cancelled || !containerRef.current) return;
         leafletRef.current = L;
 
@@ -113,6 +172,7 @@ export function TripMap({ stops, selectedId, onSelect }: TripMapProps) {
         mapStops.forEach((stop, index) => {
           const marker = L.marker(stop.position as [number, number], {
             icon: makeIcon(index, isSelected(stop.id)),
+            keyboard: false,
             title: stop.title,
           });
           marker.on("click", () => onSelect(stop.id));
@@ -140,7 +200,7 @@ export function TripMap({ stops, selectedId, onSelect }: TripMapProps) {
       if (markerRefs.current === markers) markerRefs.current = new Map();
       if (mapRef.current === mapInstance) mapRef.current = null;
     };
-  }, [failed, onSelect, stops]);
+  }, [failed, onSelect, shouldLoad, stops]);
 
   useEffect(() => {
     const L = leafletRef.current;

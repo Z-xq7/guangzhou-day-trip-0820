@@ -9,7 +9,11 @@ import {
   TripPlanner,
   TripTimeline,
 } from "../src/features/trip/TripPlanner";
-import { MAP_MARKER_SIZE, RouteFallback } from "../src/features/trip/TripMap";
+import {
+  MAP_LOAD_ROOT_MARGIN,
+  MAP_MARKER_SIZE,
+  RouteFallback,
+} from "../src/features/trip/TripMap";
 
 afterEach(cleanup);
 
@@ -104,5 +108,9 @@ describe("RouteFallback", () => {
 
   it("keeps interactive map markers at the 44px mobile touch-target minimum", () => {
     expect(MAP_MARKER_SIZE).toBe(44);
+  });
+
+  it("defers the heavy map bundle until the route is near the viewport", () => {
+    expect(MAP_LOAD_ROOT_MARGIN).toBe("300px");
   });
 });

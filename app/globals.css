@@ -1,14 +1,11 @@
-@import url("/assets/leaflet.css");
-@import "tailwindcss";
-
 :root {
   --paper: #f3ecdf;
   --paper-light: #fbf7ef;
   --paper-deep: #e8dcc8;
   --ink: #173f36;
-  --ink-soft: #5d6f68;
-  --red: #b84b3b;
-  --red-dark: #91372c;
+  --ink-soft: #52625d;
+  --red: #aa3f32;
+  --red-dark: #873126;
   --gold: #c69b5b;
   --line: rgba(23, 63, 54, 0.15);
   --shadow: 0 24px 70px rgba(48, 45, 35, 0.11);
