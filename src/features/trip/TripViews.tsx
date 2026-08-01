@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   bookingItems,
   budgetItems,
@@ -286,20 +286,26 @@ export function MapView({
     status: "idle" | "copied" | "manual";
     placeText: string | null;
   }>({ status: "idle", placeText: null });
+  const copyRequestId = useRef(0);
   const placeText = `广州 ${selectedStop.placeName}`;
   const copyStatus = copyResult.placeText === placeText ? copyResult.status : "idle";
 
   const copyPlace = async () => {
+    const requestId = ++copyRequestId.current;
     const textToCopy = placeText;
+    const commitCopyResult = (status: "copied" | "manual") => {
+      if (requestId !== copyRequestId.current) return;
+      setCopyResult({ status, placeText: textToCopy });
+    };
     try {
       if (!navigator.clipboard?.writeText) {
-        setCopyResult({ status: "manual", placeText: textToCopy });
+        commitCopyResult("manual");
         return;
       }
       await navigator.clipboard.writeText(textToCopy);
-      setCopyResult({ status: "copied", placeText: textToCopy });
+      commitCopyResult("copied");
     } catch {
-      setCopyResult({ status: "manual", placeText: textToCopy });
+      commitCopyResult("manual");
     }
   };
 

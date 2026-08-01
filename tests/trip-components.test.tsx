@@ -206,6 +206,52 @@ describe("TripViews", () => {
     expect(screen.queryByText("已复制地点")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制地点" })).toBeInTheDocument();
   });
+
+  it("keeps the latest copied feedback when an older request resolves last", async () => {
+    let resolveFirstCopy: (() => void) | undefined;
+    const firstCopy = new Promise<void>((resolve) => {
+      resolveFirstCopy = resolve;
+    });
+    vi.spyOn(navigator.clipboard, "writeText")
+      .mockReturnValueOnce(firstCopy)
+      .mockResolvedValueOnce(undefined);
+    const { rerender } = render(<MapView {...mapProps} />);
+    fireEvent.click(screen.getByRole("button", { name: "复制地点" }));
+
+    rerender(<MapView {...mapProps} selectedStop={viewNextStop} />);
+    fireEvent.click(screen.getByRole("button", { name: "复制地点" }));
+    expect(await screen.findByText("已复制地点")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFirstCopy?.();
+      await firstCopy;
+    });
+
+    expect(screen.getByText("已复制地点")).toBeInTheDocument();
+  });
+
+  it("keeps the latest copied feedback when an older request rejects last", async () => {
+    let rejectFirstCopy: ((error: Error) => void) | undefined;
+    const firstCopy = new Promise<void>((_resolve, reject) => {
+      rejectFirstCopy = reject;
+    });
+    vi.spyOn(navigator.clipboard, "writeText")
+      .mockReturnValueOnce(firstCopy)
+      .mockResolvedValueOnce(undefined);
+    const { rerender } = render(<MapView {...mapProps} />);
+    fireEvent.click(screen.getByRole("button", { name: "复制地点" }));
+
+    rerender(<MapView {...mapProps} selectedStop={viewNextStop} />);
+    fireEvent.click(screen.getByRole("button", { name: "复制地点" }));
+    expect(await screen.findByText("已复制地点")).toBeInTheDocument();
+
+    await act(async () => {
+      rejectFirstCopy?.(new Error("stale denied"));
+      await firstCopy.catch(() => undefined);
+    });
+
+    expect(screen.getByText("已复制地点")).toBeInTheDocument();
+  });
 });
 
 describe("MobileAppShell", () => {
