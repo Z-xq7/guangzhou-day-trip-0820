@@ -28,6 +28,12 @@ test("ships nine optimized local WebP photos", async () => {
     assert.equal(metadata.format, "webp", `${file} is not WebP`);
     assert.ok(metadata.width && metadata.height, `${file} has invalid dimensions`);
     assert.ok(Math.max(metadata.width, metadata.height) <= 1600, `${file} exceeds 1600 px`);
+    const ratio = Math.max(metadata.width, metadata.height) / Math.min(metadata.width, metadata.height);
+    const allowedRatios = [3 / 2, 4 / 3];
+    assert.ok(
+      allowedRatios.some((allowedRatio) => Math.abs(ratio - allowedRatio) <= 0.01),
+      `${file} ratio ${ratio.toFixed(4)} must be 3:2 or 4:3`,
+    );
 
     const decoded = await image.clone().raw().toBuffer({ resolveWithObject: true });
     assert.equal(decoded.info.width, metadata.width, `${file} decoded width changed`);

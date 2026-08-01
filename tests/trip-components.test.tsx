@@ -206,6 +206,24 @@ describe("TripViews", () => {
     );
   });
 
+  it("derives exactly nine safe centralized photo credits from the itinerary", () => {
+    render(<MyTripView {...myTripProps} />);
+    const creditRegion = screen.getByRole("region", { name: "图片来源" });
+    const creditLinks = within(creditRegion).getAllByRole("link");
+    const photoStops = itineraryStops.filter((stop) => stop.photo);
+
+    expect(creditLinks).toHaveLength(9);
+    photoStops.forEach((stop, index) => {
+      const link = creditLinks[index];
+      expect(link).toHaveAttribute("href", stop.photo?.sourceUrl);
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noreferrer");
+      expect(link).toHaveAccessibleName(
+        `${stop.title} 图片来源：${stop.photo?.author} · ${stop.photo?.license}`,
+      );
+    });
+  });
+
   it("confirms a copied place and uses the exact Guangzhou search text", async () => {
     const writeText = vi.spyOn(navigator.clipboard, "writeText");
     render(<MapView {...mapProps} />);
@@ -684,6 +702,91 @@ describe("TripPlanner", () => {
     expect(summary).toHaveTextContent("下雨");
   });
 
+  it("replaces the mobile marketing hero with one operational first-screen panel", () => {
+    installMatchMedia(true);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      scenario: "normal",
+      completedStopIds: ["tea"],
+      bookingIds: [],
+      activeView: "route",
+    }));
+    render(<TripPlanner />);
+
+    const routeView = screen.getByRole("region", { name: "路线规划" });
+    const operations = within(routeView).getByRole("region", { name: "手机当日操作" });
+    expect(operations).toHaveTextContent("2026.08.20");
+    expect(operations).toHaveTextContent("当前站");
+    expect(operations).toHaveTextContent("广州酒家文昌总店早茶");
+    expect(operations).toHaveTextContent("08:20–09:25");
+    expect(operations).toHaveTextContent("进度下一站");
+    expect(operations).toHaveTextContent("陈家祠");
+    expect(operations).toHaveTextContent("09:40");
+    const nextAction = within(operations).getByRole("link", { name: /百度地图去进度下一站/ });
+    expect(new URL(nextAction.getAttribute("href") ?? "").searchParams.get("destination"))
+      .toBe("name:广州 陈家祠");
+    expect(screen.getAllByRole("tablist", { name: "行程模式" })).toHaveLength(1);
+    expect(within(routeView).queryByRole("heading", { name: /趁一日，饮啖茶/ }))
+      .not.toBeInTheDocument();
+    expect(within(routeView).queryByLabelText("行程关键数据")).not.toBeInTheDocument();
+  });
+
+  it("keeps the full headline and four statistics on desktop", () => {
+    installMatchMedia(false);
+    render(<TripPlanner />);
+
+    const routeView = screen.getByRole("region", { name: "路线规划" });
+    expect(within(routeView).getByRole("heading", { name: /趁一日，饮啖茶/ }))
+      .toBeInTheDocument();
+    expect(within(routeView).getByLabelText("行程关键数据").children).toHaveLength(4);
+    expect(within(routeView).queryByRole("region", { name: "手机当日操作" }))
+      .not.toBeInTheDocument();
+    expect(screen.getAllByRole("tablist", { name: "行程模式" })).toHaveLength(1);
+  });
+
+  it("shows Todo progress from unique known booking IDs only", () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      scenario: "normal",
+      completedStopIds: [],
+      bookingIds: ["train-outbound", "stale-booking", "train-outbound"],
+      activeView: "todo",
+    }));
+    render(<TripPlanner />);
+
+    const todoView = screen.getByRole("region", { name: "行前待办" });
+    expect(within(todoView).getByText("1/5")).toBeInTheDocument();
+    expect(within(todoView).getByText("20%")).toBeInTheDocument();
+    const myStats = screen.getByLabelText("我的行程进度");
+    expect(within(myStats).getByText("1/5")).toBeInTheDocument();
+    expect(within(myStats).queryByText("3/5")).not.toBeInTheDocument();
+  });
+
+  it("keeps load, updates, and reset usable when localStorage throws SecurityError", () => {
+    const securityError = new DOMException("Blocked", "SecurityError");
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw securityError;
+    });
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw securityError;
+    });
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw securityError;
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    expect(() => render(<TripPlanner />)).not.toThrow();
+    fireEvent.click(screen.getByRole("tab", { name: "下雨" }));
+    expect(screen.getByRole("tab", { name: "下雨" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/雨天把时间留在室内/)).toBeInTheDocument();
+    expect(setItem).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "清除本机记录" }));
+    expect(screen.getByRole("tab", { name: "正常" })).toHaveAttribute("aria-selected", "true");
+    expect(removeItem).toHaveBeenCalledTimes(2);
+    expect(getItem).toHaveBeenCalled();
+  });
+
   it("opens the todo view from the route booking shortcut on mobile", () => {
     installMatchMedia(true);
     window.history.replaceState(null, "", "#route");
@@ -863,6 +966,12 @@ describe("StopPhoto", () => {
     );
     expect(screen.getByText(/CC BY-SA 4.0/)).toBeInTheDocument();
     expect(screen.queryByText(photo.alt)).not.toBeInTheDocument();
+    const media = image.closest(".stop-photo-media");
+    const figure = image.closest("figure");
+    expect(media).toBeInTheDocument();
+    expect(figure?.children).toHaveLength(2);
+    expect(figure?.lastElementChild?.tagName).toBe("FIGCAPTION");
+    expect(media?.nextElementSibling?.tagName).toBe("FIGCAPTION");
   });
 
   it("shows the 1869 Lychee Bay history note as a visible caption", () => {
@@ -876,7 +985,14 @@ describe("StopPhoto", () => {
   it("shows a readable fallback when the local file fails", () => {
     render(<StopPhoto photo={photo} title="陈家祠" priority={false} />);
     fireEvent.error(screen.getByRole("img", { name: photo.alt }));
-    expect(screen.getByRole("img", { name: "陈家祠照片暂不可用" })).toBeInTheDocument();
+    const fallback = screen.getByRole("img", { name: "陈家祠照片暂不可用" });
+    expect(fallback).toBeInTheDocument();
+    expect(fallback).toHaveClass("stop-photo-fallback");
+    expect(fallback.parentElement).toHaveClass("stop-photo-media");
+    expect(screen.getByRole("link", { name: /图片来源/ })).toHaveAttribute(
+      "href",
+      photo.sourceUrl,
+    );
   });
 
   it("recovers immediately when a failed photo is replaced", () => {

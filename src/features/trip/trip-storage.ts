@@ -50,7 +50,12 @@ function isV1TripState(value: unknown): value is LegacyTripState {
 }
 
 export function saveTripState(storage: StorageLike, state: TripState) {
-  storage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function parseStoredState(raw: string | null): unknown {
@@ -77,19 +82,32 @@ export function loadTripState(storage: StorageLike): TripState {
 }
 
 export function clearTripState(storage: StorageLike) {
-  storage.removeItem(STORAGE_KEY);
-  storage.removeItem(LEGACY_STORAGE_KEY);
+  let cleared = true;
+  for (const key of [STORAGE_KEY, LEGACY_STORAGE_KEY]) {
+    try {
+      storage.removeItem(key);
+    } catch {
+      cleared = false;
+    }
+  }
+  return cleared;
 }
 
 let cachedRawState: string | null | undefined;
 let cachedTripState = defaultTripState;
+let memoryFallbackActive = false;
 
 export function getTripStateSnapshot(): TripState {
   if (typeof window === "undefined") return defaultTripState;
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (raw !== cachedRawState) {
-    cachedRawState = raw;
-    cachedTripState = loadTripState(window.localStorage);
+  if (memoryFallbackActive) return cachedTripState;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw !== cachedRawState) {
+      cachedRawState = raw;
+      cachedTripState = loadTripState(window.localStorage);
+    }
+  } catch {
+    memoryFallbackActive = true;
   }
   return cachedTripState;
 }
@@ -106,13 +124,18 @@ export function subscribeTripState(onChange: () => void) {
 
 export function updateTripState(updater: (current: TripState) => TripState) {
   const nextState = updater(getTripStateSnapshot());
-  saveTripState(window.localStorage, nextState);
-  cachedRawState = undefined;
+  const serializedState = JSON.stringify(nextState);
+  const persisted = saveTripState(window.localStorage, nextState);
+  cachedTripState = nextState;
+  cachedRawState = persisted ? serializedState : undefined;
+  memoryFallbackActive = !persisted;
   window.dispatchEvent(new Event(TRIP_STATE_CHANGE_EVENT));
 }
 
 export function resetTripState() {
-  clearTripState(window.localStorage);
-  cachedRawState = undefined;
+  const cleared = clearTripState(window.localStorage);
+  cachedTripState = defaultTripState;
+  cachedRawState = cleared ? null : undefined;
+  memoryFallbackActive = !cleared;
   window.dispatchEvent(new Event(TRIP_STATE_CHANGE_EVENT));
 }

@@ -24,6 +24,27 @@ class MemoryStorage {
   }
 }
 
+class ThrowingStorage {
+  getCalls: string[] = [];
+  setCalls: string[] = [];
+  removeCalls: string[] = [];
+
+  getItem(key: string): string | null {
+    this.getCalls.push(key);
+    throw new DOMException("Blocked", "SecurityError");
+  }
+
+  setItem(key: string) {
+    this.setCalls.push(key);
+    throw new DOMException("Blocked", "SecurityError");
+  }
+
+  removeItem(key: string) {
+    this.removeCalls.push(key);
+    throw new DOMException("Blocked", "SecurityError");
+  }
+}
+
 describe("trip state storage", () => {
   it("persists version 2 including the active mobile view", () => {
     const storage = new MemoryStorage();
@@ -84,6 +105,22 @@ describe("trip state storage", () => {
     clearTripState(storage);
     expect(storage.getItem(STORAGE_KEY)).toBeNull();
     expect(storage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+  });
+
+  it("reports SecurityError fallback for load, save, and both clear records", () => {
+    const storage = new ThrowingStorage();
+    const state = {
+      ...defaultTripState,
+      scenario: "rain" as const,
+      completedStopIds: ["tea"],
+    };
+
+    expect(loadTripState(storage)).toEqual(defaultTripState);
+    expect(saveTripState(storage, state)).toBe(false);
+    expect(clearTripState(storage)).toBe(false);
+    expect(storage.getCalls).toEqual([STORAGE_KEY]);
+    expect(storage.setCalls).toEqual([STORAGE_KEY]);
+    expect(storage.removeCalls).toEqual([STORAGE_KEY, LEGACY_STORAGE_KEY]);
   });
 
   it("returns a safe default when saved JSON is malformed", () => {

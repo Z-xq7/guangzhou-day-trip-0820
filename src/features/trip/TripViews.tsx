@@ -5,6 +5,7 @@ import {
   bookingItems,
   budgetItems as defaultBudgetItems,
   budgetLabels,
+  itineraryStops,
   scenarioCopy,
   sources,
 } from "../../data/itinerary";
@@ -185,6 +186,9 @@ export function RouteView({
   progressNextStop,
   progressNextNavigationUrl,
 }: RouteViewProps) {
+  const operationalNextStop = progressNextStop ?? selectedStop;
+  const operationalNavigationUrl = progressNextNavigationUrl ?? selectedNavigationUrl;
+
   return (
     <section
       id="route"
@@ -205,57 +209,99 @@ export function RouteView({
         </nav>
       </header>
 
-      <section className="hero" id="top" tabIndex={-1}>
-        <div className="hero-rings ring-one" aria-hidden="true" />
-        <div className="hero-rings ring-two" aria-hidden="true" />
-        <div className="hero-copy">
-          <p className="eyebrow">2026.08.20 · 星期四 · 深圳北出发</p>
-          <h1>趁一日，饮啖茶<br /><em>行一城</em></h1>
-          <p className="hero-lead">从西关晨茶走到珠江灯影。路线不贪多，但广州该有的味道、建筑、街巷与夜色，一样不少。</p>
-          <div className="hero-actions">
-            <a className="button button-primary" href="#stop-detail">展开今日路线 <span aria-hidden="true">↓</span></a>
-            <a
-              className="button button-ghost"
-              href="#todo"
-              onClick={isMobile && onNavigateView ? (event) => {
-                event.preventDefault();
-                onNavigateView("todo");
-              } : undefined}
-            >
-              先看预约清单
-            </a>
+      {isMobile ? (
+        <section
+          className="mobile-operations section-shell"
+          id="top"
+          tabIndex={-1}
+          aria-label="手机当日操作"
+        >
+          <div className="mobile-operations-heading">
+            <p className="eyebrow">2026.08.20 · 星期四</p>
+            <strong>今天照着走</strong>
           </div>
-        </div>
-        <div className="hero-ticket" aria-label="行程摘要">
-          <div className="ticket-top"><span>GUANGZHOU DAY PASS</span><strong>双人</strong></div>
-          <div className="ticket-route"><span>SZX</span><i aria-hidden="true" /><span>CAN</span></div>
-          <dl>
-            <div><dt>出发</dt><dd>深圳北</dd></div>
-            <div><dt>终点</dt><dd>珠江夜游</dd></div>
-            <div><dt>节奏</dt><dd>早出晚归</dd></div>
-            <div><dt>主线</dt><dd>西关 → 越秀</dd></div>
-          </dl>
-          <div className="ticket-stamp" aria-hidden="true">穗<br />游</div>
-        </div>
-      </section>
-
-      <section className="quick-stats" aria-label="行程关键数据">
-        <div><span className="stat-kicker">全天跨度</span><strong>约 14.5h</strong><small>含深广往返</small></div>
-        <div><span className="stat-kicker">预计步行</span><strong>约 9km</strong><small>雨天模式更少</small></div>
-        <div><span className="stat-kicker">广州人均</span><strong>¥{perPersonBudget.min}–{perPersonBudget.max}</strong><small>不含往返高铁</small></div>
-        <div><span className="stat-kicker">信息状态</span><strong>已核验</strong><small>更新于 08.01</small></div>
-      </section>
-
-      <section className="scenario-section section-shell" aria-labelledby="scenario-title">
-        <div className="section-heading compact">
-          <div><p className="eyebrow">PLAN B BUILT IN</p><h2 id="scenario-title">天气变，主线不乱</h2></div>
+          <div className="mobile-operation-grid">
+            <article>
+              <span>当前站</span>
+              <strong>{selectedStop.title}</strong>
+              <small>{selectedStop.start}–{selectedStop.end}</small>
+            </article>
+            <article>
+              <span>进度下一站</span>
+              <strong>{operationalNextStop.title}</strong>
+              <small>{operationalNextStop.start} 出发</small>
+            </article>
+          </div>
+          <a
+            className="button button-primary mobile-operation-action"
+            href={operationalNavigationUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            百度地图去进度下一站 {operationalNextStop.shortTitle} <span aria-hidden="true">↗</span>
+          </a>
           <ScenarioSwitcher value={scenario} onChange={onScenarioChange} />
-        </div>
-        <div className={`scenario-note scenario-${scenario}`} role="status">
-          <span className="note-mark" aria-hidden="true">{scenario === "normal" ? "常" : scenario === "rain" ? "雨" : "迟"}</span>
-          <div><strong>{scenarioCopy[scenario].title}</strong><p>{scenarioCopy[scenario].description}</p></div>
-        </div>
-      </section>
+          <div className={`mobile-scenario-note scenario-${scenario}`} role="status">
+            <strong>{scenarioCopy[scenario].title}</strong>
+            <p>{scenarioCopy[scenario].description}</p>
+          </div>
+          <a
+            className="mobile-todo-shortcut"
+            href="#todo"
+            onClick={onNavigateView ? (event) => {
+              event.preventDefault();
+              onNavigateView("todo");
+            } : undefined}
+          >
+            先看预约清单
+          </a>
+        </section>
+      ) : (
+        <>
+          <section className="hero" id="top" tabIndex={-1}>
+            <div className="hero-rings ring-one" aria-hidden="true" />
+            <div className="hero-rings ring-two" aria-hidden="true" />
+            <div className="hero-copy">
+              <p className="eyebrow">2026.08.20 · 星期四 · 深圳北出发</p>
+              <h1>趁一日，饮啖茶<br /><em>行一城</em></h1>
+              <p className="hero-lead">从西关晨茶走到珠江灯影。路线不贪多，但广州该有的味道、建筑、街巷与夜色，一样不少。</p>
+              <div className="hero-actions">
+                <a className="button button-primary" href="#stop-detail">展开今日路线 <span aria-hidden="true">↓</span></a>
+                <a className="button button-ghost" href="#todo">先看预约清单</a>
+              </div>
+            </div>
+            <div className="hero-ticket" aria-label="行程摘要">
+              <div className="ticket-top"><span>GUANGZHOU DAY PASS</span><strong>双人</strong></div>
+              <div className="ticket-route"><span>SZX</span><i aria-hidden="true" /><span>CAN</span></div>
+              <dl>
+                <div><dt>出发</dt><dd>深圳北</dd></div>
+                <div><dt>终点</dt><dd>珠江夜游</dd></div>
+                <div><dt>节奏</dt><dd>早出晚归</dd></div>
+                <div><dt>主线</dt><dd>西关 → 越秀</dd></div>
+              </dl>
+              <div className="ticket-stamp" aria-hidden="true">穗<br />游</div>
+            </div>
+          </section>
+
+          <section className="quick-stats" aria-label="行程关键数据">
+            <div><span className="stat-kicker">全天跨度</span><strong>约 14.5h</strong><small>含深广往返</small></div>
+            <div><span className="stat-kicker">预计步行</span><strong>约 9km</strong><small>雨天模式更少</small></div>
+            <div><span className="stat-kicker">广州人均</span><strong>¥{perPersonBudget.min}–{perPersonBudget.max}</strong><small>不含往返高铁</small></div>
+            <div><span className="stat-kicker">信息状态</span><strong>已核验</strong><small>更新于 08.01</small></div>
+          </section>
+
+          <section className="scenario-section section-shell" aria-labelledby="scenario-title">
+            <div className="section-heading compact">
+              <div><p className="eyebrow">PLAN B BUILT IN</p><h2 id="scenario-title">天气变，主线不乱</h2></div>
+              <ScenarioSwitcher value={scenario} onChange={onScenarioChange} />
+            </div>
+            <div className={`scenario-note scenario-${scenario}`} role="status">
+              <span className="note-mark" aria-hidden="true">{scenario === "normal" ? "常" : scenario === "rain" ? "雨" : "迟"}</span>
+              <div><strong>{scenarioCopy[scenario].title}</strong><p>{scenarioCopy[scenario].description}</p></div>
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="route-section section-shell" aria-labelledby="route-title">
         <div className="section-heading">
@@ -407,6 +453,10 @@ export interface TodoViewProps {
 }
 
 export function TodoView({ isActive = true, isMobile = false, completedIds, onToggle }: TodoViewProps) {
+  const knownBookingIds = new Set(bookingItems.map((item) => item.id));
+  const completedCount = new Set(completedIds.filter((id) => knownBookingIds.has(id))).size;
+  const completedPercent = Math.round((completedCount / bookingItems.length) * 100);
+
   return (
     <section
       id="todo"
@@ -423,6 +473,10 @@ export function TodoView({ isActive = true, isMobile = false, completedIds, onTo
         <div className="checklist-card paper-card">
           <div className="section-heading compact">
             <div><p className="eyebrow">BEFORE YOU GO</p><h2 id="checklist-title">行前预约清单</h2></div>
+            <div className="todo-progress" aria-label="预约完成进度">
+              <strong>{completedCount}/{bookingItems.length}</strong>
+              <span>{completedPercent}%</span>
+            </div>
           </div>
           <BookingChecklist items={bookingItems} completedIds={completedIds} onToggle={onToggle} />
         </div>
@@ -458,6 +512,10 @@ const scenarioLabels: Record<Scenario, string> = {
   rain: "下雨",
   delay: "高铁晚点",
 };
+
+const photoCredits = itineraryStops.flatMap((stop) => (
+  stop.photo ? [{ id: stop.id, title: stop.title, photo: stop.photo }] : []
+));
 
 export function MyTripView({
   isActive = true,
@@ -523,6 +581,24 @@ export function MyTripView({
             </a>
           ))}
         </div>
+        <section className="photo-credits" aria-labelledby="photo-credits-title">
+          <h3 id="photo-credits-title">图片来源</h3>
+          <div className="photo-credit-grid">
+            {photoCredits.map(({ id, title, photo }) => (
+              <a
+                key={id}
+                href={photo.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${title} 图片来源：${photo.author} · ${photo.license}`}
+              >
+                <strong>{title}</strong>
+                <span>{photo.author}</span>
+                <small>{photo.license} ↗</small>
+              </a>
+            ))}
+          </div>
+        </section>
         <p className="source-note">车次、船名和精确票价将在官方开放 8 月 20 日班次后才能锁定；页面当前只给安全时间窗。</p>
         <p className="privacy-note">不登录、不定位、不上传数据</p>
         <button type="button" onClick={onReset}>清除本机记录</button>

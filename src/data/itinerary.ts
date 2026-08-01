@@ -274,9 +274,9 @@ export const itineraryStops: ItineraryStop[] = [
     photo: {
       src: "images/stops/09-pearl-river-night.webp",
       alt: "珠江夜色中的广州塔、城市天际线与游船",
-      author: "Daniel Lu (User:dllu)",
-      sourceUrl: "https://commons.wikimedia.org/wiki/File:Canton_Tower_at_night_Guangzhou_2024_dllu.jpg",
-      license: "CC BY-SA 4.0",
+      author: "Azwari Nugraha",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Pearl_River_Guangzhou.jpg",
+      license: "CC BY 2.0",
     },
     showOnMap: true,
     comparisons: [
