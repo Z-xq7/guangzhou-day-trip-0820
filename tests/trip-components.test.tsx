@@ -729,6 +729,7 @@ describe("TripPlanner", () => {
     expect(within(routeView).queryByRole("heading", { name: /趁一日，饮啖茶/ }))
       .not.toBeInTheDocument();
     expect(within(routeView).queryByLabelText("行程关键数据")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("下一站快捷操作")).not.toBeInTheDocument();
   });
 
   it("keeps the full headline and four statistics on desktop", () => {

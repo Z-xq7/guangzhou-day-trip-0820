@@ -218,7 +218,16 @@ export function RouteView({
         >
           <div className="mobile-operations-heading">
             <p className="eyebrow">2026.08.20 · 星期四</p>
-            <strong>今天照着走</strong>
+            <a
+              href="#todo"
+              aria-label="先看预约清单"
+              onClick={onNavigateView ? (event) => {
+                event.preventDefault();
+                onNavigateView("todo");
+              } : undefined}
+            >
+              预约清单
+            </a>
           </div>
           <div className="mobile-operation-grid">
             <article>
@@ -245,16 +254,6 @@ export function RouteView({
             <strong>{scenarioCopy[scenario].title}</strong>
             <p>{scenarioCopy[scenario].description}</p>
           </div>
-          <a
-            className="mobile-todo-shortcut"
-            href="#todo"
-            onClick={onNavigateView ? (event) => {
-              event.preventDefault();
-              onNavigateView("todo");
-            } : undefined}
-          >
-            先看预约清单
-          </a>
         </section>
       ) : (
         <>

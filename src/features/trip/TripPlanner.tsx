@@ -283,15 +283,17 @@ export function TripPlanner() {
         onReset={resetLocalTrip}
       />
 
-      <NextStopBar
-        nextStop={progressNextStop}
-        navigationUrl={buildBaiduMapUrl(
-          progressNextOrigin,
-          progressNextStop.placeName,
-          progressNextStop.navigationMode,
-        )}
-        onSelect={selectStop}
-      />
+      {!isMobile || tripState.activeView !== "route" ? (
+        <NextStopBar
+          nextStop={progressNextStop}
+          navigationUrl={buildBaiduMapUrl(
+            progressNextOrigin,
+            progressNextStop.placeName,
+            progressNextStop.navigationMode,
+          )}
+          onSelect={selectStop}
+        />
+      ) : null}
       <MobileAppShell activeView={tripState.activeView} onChange={setActiveView} />
     </main>
   );
