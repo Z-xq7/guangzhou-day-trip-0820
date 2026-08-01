@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { budgetItems, itineraryStops } from "../../data/itinerary";
+import { bookingItems, budgetItems, itineraryStops } from "../../data/itinerary";
 import type { ItineraryStop, MobileView, Scenario } from "../../data/types";
 import {
   applyScenario,
+  applyScenarioBudget,
   buildBaiduMapUrl,
   buildBaiduPlaceUrl,
   summarizeBudget,
@@ -31,7 +32,17 @@ function getNavigationOrigin(stops: ItineraryStop[], destinationId: string) {
   return !previous || previous.id === "rail-outbound" ? "广州南站" : previous.placeName;
 }
 
-const mobileViews: MobileView[] = ["route", "map", "todo", "me"];
+const hashOwnership: Record<string, MobileView> = {
+  route: "route",
+  top: "route",
+  "stop-detail": "route",
+  map: "map",
+  todo: "todo",
+  checklist: "todo",
+  me: "me",
+  budget: "me",
+};
+const mobileViews = new Set<MobileView>(["route", "map", "todo", "me"]);
 const mobileViewportQuery = "(max-width: 760px)";
 
 function getMobileViewportSnapshot() {
@@ -49,9 +60,31 @@ function subscribeMobileViewport(onChange: () => void) {
   return () => mediaQuery.removeEventListener("change", onChange);
 }
 
-function parseViewHash(hash: string): MobileView | null {
-  const value = hash.replace(/^#/, "") as MobileView;
-  return mobileViews.includes(value) ? value : null;
+function parseOwnedHash(hash: string) {
+  let targetId: string;
+  try {
+    targetId = decodeURIComponent(hash.replace(/^#/, ""));
+  } catch {
+    return null;
+  }
+  const owner = hashOwnership[targetId];
+  return owner ? { owner, targetId } : null;
+}
+
+function focusInternalHashTarget(targetId: string) {
+  if (mobileViews.has(targetId as MobileView) || !getMobileViewportSnapshot()) return;
+  const focusTarget = () => {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    target.scrollIntoView?.({ block: "start" });
+    target.focus({ preventScroll: true });
+  };
+
+  if (typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(focusTarget);
+  } else {
+    window.setTimeout(focusTarget, 0);
+  }
 }
 
 function updateActiveView(view: MobileView) {
@@ -60,7 +93,6 @@ function updateActiveView(view: MobileView) {
 }
 
 export function TripPlanner() {
-  const budget = useMemo(() => summarizeBudget(budgetItems), []);
   const tripState = useSyncExternalStore(
     subscribeTripState,
     getTripStateSnapshot,
@@ -77,14 +109,22 @@ export function TripPlanner() {
     () => applyScenario(itineraryStops, tripState.scenario),
     [tripState.scenario],
   );
+  const activeBudgetItems = useMemo(
+    () => applyScenarioBudget(budgetItems, tripState.scenario),
+    [tripState.scenario],
+  );
+  const budget = useMemo(() => summarizeBudget(activeBudgetItems), [activeBudgetItems]);
   const fallbackSelectedStop =
     activeStops.find((stop) => !stop.id.startsWith("rail-")) ?? activeStops[0];
   const selectedStop =
     activeStops.find((stop) => stop.id === selectedId) ?? fallbackSelectedStop;
-  const nextStop =
+  const progressNextStop =
     activeStops.find(
       (stop) => !stop.id.startsWith("rail-") && !tripState.completedStopIds.includes(stop.id),
     ) ?? activeStops.at(-1)!;
+  const selectedStopIndex = activeStops.findIndex((stop) => stop.id === selectedStop.id);
+  const selectedNextStop =
+    selectedStopIndex >= 0 ? activeStops[selectedStopIndex + 1] : undefined;
 
   useEffect(() => {
     const selectedIsActive = activeStops.some((stop) => stop.id === selectedId);
@@ -96,17 +136,20 @@ export function TripPlanner() {
   }, [activeStops, fallbackSelectedStop, selectedId]);
 
   useEffect(() => {
-    const initialView = parseViewHash(window.location.hash);
-    if (initialView) {
-      updateActiveView(initialView);
+    const syncViewFromHistory = () => {
+      const ownedHash = parseOwnedHash(window.location.hash);
+      if (!ownedHash) return;
+      updateActiveView(ownedHash.owner);
+      focusInternalHashTarget(ownedHash.targetId);
+    };
+
+    const initialHash = parseOwnedHash(window.location.hash);
+    if (initialHash) {
+      updateActiveView(initialHash.owner);
+      focusInternalHashTarget(initialHash.targetId);
     } else {
       window.history.replaceState(null, "", `#${getTripStateSnapshot().activeView}`);
     }
-
-    const syncViewFromHistory = () => {
-      const historyView = parseViewHash(window.location.hash);
-      if (historyView) updateActiveView(historyView);
-    };
 
     window.addEventListener("popstate", syncViewFromHistory);
     window.addEventListener("hashchange", syncViewFromHistory);
@@ -119,9 +162,22 @@ export function TripPlanner() {
   const completedCount = activeStops.filter((stop) =>
     tripState.completedStopIds.includes(stop.id),
   ).length;
-  const completedBookings = tripState.bookingIds.length;
+  const knownBookingIds = new Set(bookingItems.map((item) => item.id));
+  const completedBookings = new Set(
+    tripState.bookingIds.filter((id) => knownBookingIds.has(id)),
+  ).size;
   const selectedOrigin = getNavigationOrigin(activeStops, selectedStop.id);
-  const nextOrigin = getNavigationOrigin(activeStops, nextStop.id);
+  const progressNextOrigin = getNavigationOrigin(activeStops, progressNextStop.id);
+  const selectedNextOrigin =
+    selectedStop.id === "rail-outbound" ? "广州南站" : selectedStop.placeName;
+  const selectedNavigationUrl =
+    selectedStop.placeRegion && selectedStop.placeRegion !== "广州"
+      ? buildBaiduPlaceUrl(selectedStop.placeName, selectedStop.placeRegion)
+      : buildBaiduMapUrl(
+          selectedOrigin,
+          selectedStop.placeName,
+          selectedStop.navigationMode,
+        );
 
   const setScenario = useCallback((scenario: Scenario) => {
     updateTripState((current) => ({ ...current, scenario }));
@@ -183,10 +239,12 @@ export function TripPlanner() {
         onSelectStop={selectStop}
         onToggleStop={toggleStop}
         onNavigateView={setActiveView}
-        selectedNavigationUrl={buildBaiduMapUrl(
-          selectedOrigin,
-          selectedStop.placeName,
-          selectedStop.navigationMode,
+        selectedNavigationUrl={selectedNavigationUrl}
+        progressNextStop={progressNextStop}
+        progressNextNavigationUrl={buildBaiduMapUrl(
+          progressNextOrigin,
+          progressNextStop.placeName,
+          progressNextStop.navigationMode,
         )}
       />
       <MapView
@@ -194,13 +252,16 @@ export function TripPlanner() {
         isMobile={isMobile}
         stops={activeStops}
         selectedStop={selectedStop}
-        nextStop={nextStop}
-        placeUrl={buildBaiduPlaceUrl(selectedStop.placeName)}
-        nextNavigationUrl={buildBaiduMapUrl(
-          nextOrigin,
-          nextStop.placeName,
-          nextStop.navigationMode,
+        nextStop={selectedNextStop}
+        placeUrl={buildBaiduPlaceUrl(
+          selectedStop.placeName,
+          selectedStop.placeRegion ?? "广州",
         )}
+        nextNavigationUrl={selectedNextStop ? buildBaiduMapUrl(
+          selectedNextOrigin,
+          selectedNextStop.placeName,
+          selectedNextStop.navigationMode,
+        ) : undefined}
         onSelectStop={selectStop}
       />
       <TodoView
@@ -217,13 +278,18 @@ export function TripPlanner() {
         totalStops={activeStops.length}
         completedBookings={completedBookings}
         budget={budget}
+        budgetItems={activeBudgetItems}
         onNavigateView={setActiveView}
         onReset={resetLocalTrip}
       />
 
       <NextStopBar
-        nextStop={nextStop}
-        navigationUrl={buildBaiduMapUrl(nextOrigin, nextStop.placeName, nextStop.navigationMode)}
+        nextStop={progressNextStop}
+        navigationUrl={buildBaiduMapUrl(
+          progressNextOrigin,
+          progressNextStop.placeName,
+          progressNextStop.navigationMode,
+        )}
         onSelect={selectStop}
       />
       <MobileAppShell activeView={tripState.activeView} onChange={setActiveView} />

@@ -1,4 +1,5 @@
 import type { BudgetItem, ItineraryStop, Scenario, ScheduleEntry } from "../../data/types";
+import { scenarioPlans } from "../../data/itinerary";
 
 function timeToMinutes(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
@@ -20,25 +21,21 @@ export function validateSchedule(stops: ScheduleEntry[]) {
 }
 
 export function applyScenario(stops: ItineraryStop[], scenario: Scenario) {
-  if (scenario === "normal") return stops.map((stop) => ({ ...stop }));
-
-  if (scenario === "rain") {
-    return stops
-      .filter((stop) => stop.id !== "pantang")
-      .map((stop) => {
-        if (stop.id === "shamian") return { ...stop, durationMinutes: 20 };
-        if (stop.id === "yongqing") return { ...stop, durationMinutes: 100 };
-        return { ...stop };
-      });
-  }
+  const plan = scenarioPlans[scenario];
+  const removedStopIds = new Set(plan.removedStopIds);
 
   return stops
-    .filter((stop) => stop.id !== "pantang" && stop.id !== "shamian")
-    .map((stop) => ({ ...stop }));
+    .filter((stop) => !removedStopIds.has(stop.id))
+    .map((stop) => ({ ...stop, ...plan.stopOverrides[stop.id] }));
 }
 
-export function summarizeBudget(items: BudgetItem[]) {
-  const perPerson = items.reduce(
+export function applyScenarioBudget(items: BudgetItem[], scenario: Scenario = "normal") {
+  const overrides = scenarioPlans[scenario].budgetOverrides;
+  return items.map((item) => ({ ...item, ...overrides[item.id] }));
+}
+
+export function summarizeBudget(items: BudgetItem[], scenario: Scenario = "normal") {
+  const perPerson = applyScenarioBudget(items, scenario).reduce(
     (total, item) => ({ min: total.min + item.min, max: total.max + item.max }),
     { min: 0, max: 0 },
   );
@@ -74,10 +71,10 @@ export function buildBaiduMapUrl(
   return `https://api.map.baidu.com/direction?${query.toString()}`;
 }
 
-export function buildBaiduPlaceUrl(placeName: string) {
+export function buildBaiduPlaceUrl(placeName: string, region = "广州") {
   const query = new URLSearchParams({
-    query: `广州 ${placeName}`,
-    region: "广州",
+    query: `${region} ${placeName}`,
+    region,
     output: "html",
     src: BAIDU_SOURCE,
   });

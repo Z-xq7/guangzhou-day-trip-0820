@@ -3,12 +3,18 @@
 import { useRef, useState } from "react";
 import {
   bookingItems,
-  budgetItems,
+  budgetItems as defaultBudgetItems,
   budgetLabels,
   scenarioCopy,
   sources,
 } from "../../data/itinerary";
-import type { BookingItem, ItineraryStop, MobileView, Scenario } from "../../data/types";
+import type {
+  BookingItem,
+  BudgetItem,
+  ItineraryStop,
+  MobileView,
+  Scenario,
+} from "../../data/types";
 import { summarizeBudget } from "./trip-logic";
 import { RouteDiagram } from "./RouteDiagram";
 import { StopDetail } from "./StopDetail";
@@ -158,6 +164,8 @@ export interface RouteViewProps {
   onToggleStop: (id: string) => void;
   onNavigateView?: (view: MobileView) => void;
   selectedNavigationUrl: string;
+  progressNextStop?: ItineraryStop;
+  progressNextNavigationUrl?: string;
 }
 
 export function RouteView({
@@ -174,6 +182,8 @@ export function RouteView({
   onToggleStop,
   onNavigateView,
   selectedNavigationUrl,
+  progressNextStop,
+  progressNextNavigationUrl,
 }: RouteViewProps) {
   return (
     <section
@@ -195,7 +205,7 @@ export function RouteView({
         </nav>
       </header>
 
-      <section className="hero" id="top">
+      <section className="hero" id="top" tabIndex={-1}>
         <div className="hero-rings ring-one" aria-hidden="true" />
         <div className="hero-rings ring-two" aria-hidden="true" />
         <div className="hero-copy">
@@ -281,9 +291,9 @@ export interface MapViewProps {
   isMobile?: boolean;
   stops: ItineraryStop[];
   selectedStop: ItineraryStop;
-  nextStop: ItineraryStop;
+  nextStop?: ItineraryStop;
   placeUrl: string;
-  nextNavigationUrl: string;
+  nextNavigationUrl?: string;
   onSelectStop: (id: string) => void;
 }
 
@@ -302,7 +312,7 @@ export function MapView({
     placeText: string | null;
   }>({ status: "idle", placeText: null });
   const copyRequestId = useRef(0);
-  const placeText = `广州 ${selectedStop.placeName}`;
+  const placeText = `${selectedStop.placeRegion ?? "广州"} ${selectedStop.placeName}`;
   const copyStatus = copyResult.placeText === placeText ? copyResult.status : "idle";
 
   const copyPlace = async () => {
@@ -350,7 +360,11 @@ export function MapView({
             <p className="detail-summary">{selectedStop.summary}</p>
             <div className="detail-facts">
               <div><span>地点</span><strong>{selectedStop.placeName}</strong></div>
-              <div><span>下一站</span><strong>{nextStop.title}</strong></div>
+              {nextStop ? (
+                <div><span>下一站</span><strong>{nextStop.title}</strong></div>
+              ) : (
+                <div><span>行程状态</span><strong>路线已完成</strong></div>
+              )}
             </div>
             <button type="button" onClick={copyPlace}>
               {copyStatus === "copied" ? "已复制地点" : "复制地点"}
@@ -366,14 +380,18 @@ export function MapView({
             >
               在百度地图查看地点 {selectedStop.shortTitle} <span aria-hidden="true">↗</span>
             </a>
-            <a
-              className="button button-primary detail-nav"
-              href={nextNavigationUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              百度地图去下一站 {nextStop.shortTitle} <span aria-hidden="true">↗</span>
-            </a>
+            {nextStop && nextNavigationUrl ? (
+              <a
+                className="button button-primary detail-nav"
+                href={nextNavigationUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                百度地图去下一站 {nextStop.shortTitle} <span aria-hidden="true">↗</span>
+              </a>
+            ) : (
+              <p className="route-complete-note">已到达本次行程终点，无需继续导航。</p>
+            )}
           </article>
         </div>
       </section>
@@ -396,7 +414,12 @@ export function TodoView({ isActive = true, isMobile = false, completedIds, onTo
       aria-label="行前待办"
       aria-hidden={isMobile && !isActive ? true : undefined}
     >
-      <section className="prep-grid section-shell" id="checklist" aria-labelledby="checklist-title">
+      <section
+        className="prep-grid section-shell"
+        id="checklist"
+        tabIndex={-1}
+        aria-labelledby="checklist-title"
+      >
         <div className="checklist-card paper-card">
           <div className="section-heading compact">
             <div><p className="eyebrow">BEFORE YOU GO</p><h2 id="checklist-title">行前预约清单</h2></div>
@@ -425,6 +448,7 @@ export interface MyTripViewProps {
   totalStops: number;
   completedBookings: number;
   budget: ReturnType<typeof summarizeBudget>;
+  budgetItems?: BudgetItem[];
   onNavigateView?: (view: MobileView) => void;
   onReset: () => void;
 }
@@ -443,6 +467,7 @@ export function MyTripView({
   totalStops,
   completedBookings,
   budget,
+  budgetItems = defaultBudgetItems,
   onNavigateView,
   onReset,
 }: MyTripViewProps) {
@@ -460,7 +485,12 @@ export function MyTripView({
         <div><span className="stat-kicker">双人预算</span><strong>¥{budget.couple.min}–{budget.couple.max}</strong><small>不含往返高铁</small></div>
       </section>
 
-      <section className="budget-section section-shell" id="budget" aria-labelledby="budget-title">
+      <section
+        className="budget-section section-shell"
+        id="budget"
+        tabIndex={-1}
+        aria-labelledby="budget-title"
+      >
         <div className="section-heading">
           <div><p className="eyebrow">SPEND WHERE IT MATTERS</p><h2 id="budget-title">预算花在体验上</h2></div>
           <p>广州本地消费；深广往返高铁单独计算。</p>

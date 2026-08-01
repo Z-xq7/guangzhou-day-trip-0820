@@ -29,11 +29,20 @@ export interface ItineraryStop extends ScheduleEntry {
   priceLabel: string;
   reservation: string;
   placeName: string;
+  placeRegion?: string;
   navigationMode: "walk" | "bus" | "car";
   transport: string;
   photo?: StopPhoto;
   showOnMap: boolean;
   comparisons?: ChoiceComparison[];
+}
+
+export type ScenarioStopOverride = Partial<Omit<ItineraryStop, "id" | "photo">>;
+
+export interface ScenarioPlan {
+  removedStopIds: string[];
+  stopOverrides: Record<string, ScenarioStopOverride>;
+  budgetOverrides: Record<string, Pick<BudgetItem, "min" | "max">>;
 }
 
 export interface BudgetItem {

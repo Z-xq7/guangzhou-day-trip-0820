@@ -3,6 +3,7 @@ import type {
   BudgetItem,
   ItineraryStop,
   Scenario,
+  ScenarioPlan,
   SourceInfo,
   TravelSegment,
 } from "./types";
@@ -23,6 +24,7 @@ export const itineraryStops: ItineraryStop[] = [
     priceLabel: "深广往返另计",
     reservation: "预计 8 月 6 日开售",
     placeName: "深圳北站",
+    placeRegion: "深圳",
     navigationMode: "bus",
     transport: "高铁 · 约 29–45 分钟",
     showOnMap: false,
@@ -302,6 +304,91 @@ export const itineraryStops: ItineraryStop[] = [
     showOnMap: true,
   },
 ];
+
+export const scenarioPlans: Record<Scenario, ScenarioPlan> = {
+  normal: {
+    removedStopIds: [],
+    stopOverrides: {},
+    budgetOverrides: {},
+  },
+  rain: {
+    removedStopIds: ["pantang"],
+    stopOverrides: {
+      yongqing: {
+        start: "11:10",
+        end: "12:50",
+        durationMinutes: 100,
+        navigationMode: "car",
+        transport: "陈家祠 → 永庆坊 · 短程打车约 15 分",
+      },
+      shamian: {
+        start: "14:25",
+        end: "14:45",
+        durationMinutes: 20,
+      },
+    },
+    budgetOverrides: {},
+  },
+  delay: {
+    removedStopIds: ["pantang", "shamian"],
+    stopOverrides: {
+      tea: {
+        title: "陈家祠附近快捷点心",
+        shortTitle: "快捷点心",
+        category: "早餐",
+        start: "08:45",
+        end: "09:20",
+        durationMinutes: 35,
+        summary: "在陈家祠附近用 35 分钟吃一份快捷点心，先补充体力，不再折返老茶楼。",
+        detail: "抵达广州南后直接乘地铁到陈家祠一带，选择即点即走的点心店；两人共享少量蒸点和粥粉，09:20 前结束。",
+        highlights: ["靠近陈家祠", "35 分钟快吃", "少量点心"],
+        food: ["虾饺／烧卖二选一", "肠粉／粥品二选一"],
+        priceLabel: "¥30–50／人",
+        reservation: "无需预约 · 控时 35 分钟",
+        placeName: "陈家祠地铁站附近点心店",
+        navigationMode: "bus",
+        transport: "广州南 → 陈家祠 · 地铁约 45 分",
+        comparisons: [
+          {
+            id: "quick-breakfast",
+            badge: "晚点预案",
+            title: "附近快捷点心",
+            cost: "¥60–100／两人",
+            time: "35 分钟",
+            description: "少量点心快速补给，步行前往陈家祠。",
+            recommended: true,
+          },
+        ],
+      },
+      "chen-clan": {
+        navigationMode: "walk",
+        transport: "快捷点心店 → 陈家祠 · 步行约 10 分",
+      },
+      yongqing: {
+        start: "11:10",
+        end: "12:25",
+        durationMinutes: 75,
+        navigationMode: "car",
+        transport: "陈家祠 → 永庆坊 · 短程打车约 15 分",
+      },
+      snacks: {
+        start: "12:25",
+        end: "13:15",
+        durationMinutes: 50,
+      },
+      "beijing-road": {
+        start: "13:45",
+        end: "14:55",
+        durationMinutes: 70,
+        navigationMode: "bus",
+        transport: "宝华路 → 北京路 · 地铁约 25 分",
+      },
+    },
+    budgetOverrides: {
+      tea: { min: 30, max: 50 },
+    },
+  },
+};
 
 export const budgetItems: BudgetItem[] = [
   { id: "tea", min: 70, max: 110 },

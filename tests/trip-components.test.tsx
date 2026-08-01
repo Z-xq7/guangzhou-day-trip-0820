@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bookingItems,
@@ -37,6 +37,10 @@ import {
 
 const initialClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
 const initialMatchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+const initialScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "scrollIntoView",
+);
 
 function installMatchMedia(initialMatches: boolean) {
   let matches = initialMatches;
@@ -100,6 +104,15 @@ afterEach(() => {
     Object.defineProperty(window, "matchMedia", initialMatchMediaDescriptor);
   } else {
     Reflect.deleteProperty(window, "matchMedia");
+  }
+  if (initialScrollIntoViewDescriptor) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "scrollIntoView",
+      initialScrollIntoViewDescriptor,
+    );
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
   }
 });
 
@@ -360,6 +373,101 @@ describe("TripPlanner", () => {
     expect(navigationUrl.searchParams.get("destination")).toBe("name:广州 陈家祠");
   });
 
+  it("keeps the fixed progress stop separate from the selected station successor", () => {
+    render(<TripPlanner />);
+
+    const mapView = screen.getByRole("region", { name: "地图与导航" });
+    const nextBar = screen.getByLabelText("下一站快捷操作");
+    expect(nextBar).toHaveTextContent("广州酒家文昌总店早茶");
+    expect(within(mapView).getByText("陈家祠", { selector: "strong" })).toBeInTheDocument();
+
+    const initialUrl = new URL(
+      within(mapView).getByRole("link", { name: /百度地图去下一站/ }).getAttribute("href") ?? "",
+    );
+    expect(initialUrl.searchParams.get("origin")).toBe("name:广州 广州酒家文昌总店");
+    expect(initialUrl.searchParams.get("destination")).toBe("name:广州 陈家祠");
+
+    const diagram = within(mapView).getByRole("region", { name: "广州一日游游览顺序示意" });
+    fireEvent.click(within(diagram).getByRole("button", { name: /09:40.*陈家祠/ }));
+    expect(within(mapView).getByText("泮塘五约 · 荔枝湾", { selector: "strong" })).toBeInTheDocument();
+
+    const chenUrl = new URL(
+      within(mapView).getByRole("link", { name: /百度地图去下一站/ }).getAttribute("href") ?? "",
+    );
+    expect(chenUrl.searchParams.get("origin")).toBe("name:广州 陈家祠");
+    expect(chenUrl.searchParams.get("destination")).toBe(
+      "name:广州 泮塘五约历史文化街区",
+    );
+  });
+
+  it("recomputes the selected successor after scenario deletion and completes at the final station", () => {
+    render(<TripPlanner />);
+    const mapView = screen.getByRole("region", { name: "地图与导航" });
+    const diagram = within(mapView).getByRole("region", { name: "广州一日游游览顺序示意" });
+
+    fireEvent.click(within(diagram).getByRole("button", { name: /09:40.*陈家祠/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "下雨" }));
+    expect(within(mapView).getByText("永庆坊 · 粤剧艺术博物馆", { selector: "strong" }))
+      .toBeInTheDocument();
+    expect(within(mapView).queryByText(/泮塘/, { selector: "strong" })).not.toBeInTheDocument();
+
+    const rainyUrl = new URL(
+      within(mapView).getByRole("link", { name: /百度地图去下一站/ }).getAttribute("href") ?? "",
+    );
+    expect(rainyUrl.searchParams.get("origin")).toBe("name:广州 陈家祠");
+    expect(rainyUrl.searchParams.get("destination")).toBe("name:广州 粤剧艺术博物馆");
+    expect(rainyUrl.searchParams.get("mode")).toBe("driving");
+
+    const rainyDiagram = within(mapView).getByRole("region", {
+      name: "广州一日游游览顺序示意",
+    });
+    fireEvent.click(within(rainyDiagram).getByRole("button", { name: /20:30.*广州南.*深圳北/ }));
+    expect(within(mapView).getByText("路线已完成")).toBeInTheDocument();
+    expect(within(mapView).queryByRole("link", { name: /百度地图去下一站/ }))
+      .not.toBeInTheDocument();
+  });
+
+  it("opens outbound rail as a Shenzhen place instead of a cross-city bus route", () => {
+    render(<TripPlanner />);
+    const timeline = screen.getByRole("region", { name: "一日时间轴" });
+    fireEvent.click(within(timeline).getByRole("button", { name: /06:35.*深圳北.*广州南/ }));
+
+    const routeView = screen.getByRole("region", { name: "路线规划" });
+    const railAction = within(routeView).getByRole("link", {
+      name: /在百度地图.*早班高铁/,
+    });
+    const url = new URL(railAction.getAttribute("href") ?? "");
+    expect(url.origin + url.pathname).toBe("https://api.map.baidu.com/place/search");
+    expect(url.searchParams.get("query")).toBe("深圳 深圳北站");
+    expect(url.searchParams.get("region")).toBe("深圳");
+    expect(url.searchParams.has("mode")).toBe(false);
+  });
+
+  it("renders the delay breakfast copy, budget, transfer, and Baidu target from one override", () => {
+    render(<TripPlanner />);
+    fireEvent.click(screen.getByRole("tab", { name: "高铁晚点" }));
+
+    const routeView = screen.getByRole("region", { name: "路线规划" });
+    const stopDetail = within(routeView).getByRole("article");
+    expect(within(routeView).getByRole("heading", { name: "陈家祠附近快捷点心" }))
+      .toBeInTheDocument();
+    expect(within(stopDetail).getByText("08:45–09:20 · 35 分钟")).toBeInTheDocument();
+    expect(within(stopDetail).getByText("广州南 → 陈家祠 · 地铁约 45 分"))
+      .toBeInTheDocument();
+    expect(within(stopDetail).getByText("¥30–50／人")).toBeInTheDocument();
+    expect(within(routeView).getByLabelText("行程关键数据")).toHaveTextContent("¥308–495");
+    expect(screen.getByText("双人共 ¥616–990")).toBeInTheDocument();
+
+    const actionUrl = new URL(
+      within(routeView).getByRole("link", { name: /在百度地图打开 快捷点心/ })
+        .getAttribute("href") ?? "",
+    );
+    expect(actionUrl.searchParams.get("destination")).toBe(
+      "name:广州 陈家祠地铁站附近点心店",
+    );
+    expect(actionUrl.searchParams.get("mode")).toBe("transit");
+  });
+
   it("keeps a valid non-rail selection after a scenario removes the selected stop", () => {
     window.localStorage.clear();
     render(<TripPlanner />);
@@ -438,6 +546,76 @@ describe("TripPlanner", () => {
       "page",
     );
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}").activeView).toBe("todo");
+  });
+
+  it.each([
+    ["#stop-detail", "route", "路线"],
+    ["#checklist", "todo", "待办"],
+  ] as const)(
+    "keeps %s on direct mobile load, selects its owner, scrolls, and focuses it",
+    async (hash, owner, tabLabel) => {
+      installMatchMedia(true);
+      const scrollIntoView = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+        configurable: true,
+        value: scrollIntoView,
+      });
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: 2,
+        scenario: "normal",
+        completedStopIds: [],
+        bookingIds: [],
+        activeView: owner === "route" ? "map" : "me",
+      }));
+      window.history.replaceState(null, "", hash);
+
+      render(<TripPlanner />);
+
+      const target = document.getElementById(hash.slice(1));
+      const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+      await waitFor(() => {
+        expect(window.location.hash).toBe(hash);
+        expect(document.getElementById(owner)).toHaveClass("is-active");
+        expect(mobileNav.getByRole("link", { name: tabLabel })).toHaveAttribute(
+          "aria-current",
+          "page",
+        );
+        expect(document.activeElement).toBe(target);
+      });
+      expect(target).toHaveAttribute("tabindex", "-1");
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+      expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}").activeView).toBe(owner);
+    },
+  );
+
+  it("restores the route owner when Back returns through an internal stop-detail hash", async () => {
+    installMatchMedia(true);
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    window.history.replaceState(null, "", "#route");
+    render(<TripPlanner />);
+
+    act(() => {
+      window.location.hash = "stop-detail";
+    });
+    await waitFor(() => expect(window.location.hash).toBe("#stop-detail"));
+
+    const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+    fireEvent.click(mobileNav.getByRole("link", { name: "地图" }));
+    expect(window.location.hash).toBe("#map");
+    expect(document.getElementById("map")).toHaveClass("is-active");
+
+    act(() => window.history.back());
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#stop-detail");
+      expect(document.getElementById("route")).toHaveClass("is-active");
+      expect(mobileNav.getByRole("link", { name: "路线" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    });
   });
 
   it.each([

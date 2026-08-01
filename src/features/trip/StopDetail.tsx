@@ -10,8 +10,10 @@ export interface StopDetailProps {
 }
 
 export function StopDetail({ stop, navigationUrl, priorityPhoto }: StopDetailProps) {
+  const usesPlaceSearch = stop.placeRegion && stop.placeRegion !== "广州";
+
   return (
-    <article className="stop-detail" id="stop-detail" aria-live="polite">
+    <article className="stop-detail" id="stop-detail" tabIndex={-1} aria-live="polite">
       <div className="detail-topline">
         <span className="category-pill">{stop.category}</span>
         <span>{stop.start}–{stop.end} · {stop.durationMinutes} 分钟</span>
@@ -65,7 +67,8 @@ export function StopDetail({ stop, navigationUrl, priorityPhoto }: StopDetailPro
         target="_blank"
         rel="noreferrer"
       >
-        在百度地图打开 {stop.shortTitle} <span aria-hidden="true">↗</span>
+        {usesPlaceSearch ? "在百度地图查看" : "在百度地图打开"} {stop.shortTitle}{" "}
+        <span aria-hidden="true">↗</span>
       </a>
     </article>
   );
