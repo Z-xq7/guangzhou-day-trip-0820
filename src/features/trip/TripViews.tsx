@@ -8,7 +8,7 @@ import {
   scenarioCopy,
   sources,
 } from "../../data/itinerary";
-import type { BookingItem, ItineraryStop, Scenario } from "../../data/types";
+import type { BookingItem, ItineraryStop, MobileView, Scenario } from "../../data/types";
 import { summarizeBudget } from "./trip-logic";
 import { RouteDiagram } from "./RouteDiagram";
 import { StopDetail } from "./StopDetail";
@@ -156,6 +156,7 @@ export interface RouteViewProps {
   onScenarioChange: (scenario: Scenario) => void;
   onSelectStop: (id: string) => void;
   onToggleStop: (id: string) => void;
+  onNavigateView?: (view: MobileView) => void;
   selectedNavigationUrl: string;
 }
 
@@ -171,6 +172,7 @@ export function RouteView({
   onScenarioChange,
   onSelectStop,
   onToggleStop,
+  onNavigateView,
   selectedNavigationUrl,
 }: RouteViewProps) {
   return (
@@ -202,7 +204,16 @@ export function RouteView({
           <p className="hero-lead">从西关晨茶走到珠江灯影。路线不贪多，但广州该有的味道、建筑、街巷与夜色，一样不少。</p>
           <div className="hero-actions">
             <a className="button button-primary" href="#stop-detail">展开今日路线 <span aria-hidden="true">↓</span></a>
-            <a className="button button-ghost" href="#checklist">先看预约清单</a>
+            <a
+              className="button button-ghost"
+              href="#todo"
+              onClick={isMobile && onNavigateView ? (event) => {
+                event.preventDefault();
+                onNavigateView("todo");
+              } : undefined}
+            >
+              先看预约清单
+            </a>
           </div>
         </div>
         <div className="hero-ticket" aria-label="行程摘要">
@@ -414,6 +425,7 @@ export interface MyTripViewProps {
   totalStops: number;
   completedBookings: number;
   budget: ReturnType<typeof summarizeBudget>;
+  onNavigateView?: (view: MobileView) => void;
   onReset: () => void;
 }
 
@@ -431,6 +443,7 @@ export function MyTripView({
   totalStops,
   completedBookings,
   budget,
+  onNavigateView,
   onReset,
 }: MyTripViewProps) {
   return (
@@ -488,7 +501,15 @@ export function MyTripView({
       <footer>
         <span className="brand-seal" aria-hidden="true">粤</span>
         <p>两个人，一日广州。<br /><small>路线数据不含定位，不上传任何个人信息。</small></p>
-        <a href="#top">回到顶部 ↑</a>
+        <a
+          href="#route"
+          onClick={isMobile && onNavigateView ? (event) => {
+            event.preventDefault();
+            onNavigateView("route");
+          } : undefined}
+        >
+          回到顶部 ↑
+        </a>
       </footer>
     </section>
   );

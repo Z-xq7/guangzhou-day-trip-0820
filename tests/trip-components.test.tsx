@@ -506,6 +506,44 @@ describe("TripPlanner", () => {
     expect(summary).toHaveTextContent("下雨");
   });
 
+  it("opens the todo view from the route booking shortcut on mobile", () => {
+    installMatchMedia(true);
+    window.history.replaceState(null, "", "#route");
+    render(<TripPlanner />);
+
+    const routeView = screen.getByRole("region", { name: "路线规划" });
+    const shortcut = within(routeView).getByRole("link", { name: "先看预约清单" });
+    expect(shortcut).toHaveAttribute("href", "#todo");
+    fireEvent.click(shortcut);
+
+    expect(document.getElementById("todo")).toHaveClass("is-active");
+    expect(window.location.hash).toBe("#todo");
+    const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+    expect(mobileNav.getByRole("link", { name: "待办" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("returns to the route view from the trip footer on mobile", () => {
+    installMatchMedia(true);
+    window.history.replaceState(null, "", "#me");
+    render(<TripPlanner />);
+
+    const myView = screen.getByRole("region", { name: "我的行程" });
+    const returnLink = within(myView).getByRole("link", { name: "回到顶部 ↑" });
+    expect(returnLink).toHaveAttribute("href", "#route");
+    fireEvent.click(returnLink);
+
+    expect(document.getElementById("route")).toHaveClass("is-active");
+    expect(window.location.hash).toBe("#route");
+    const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+    expect(mobileNav.getByRole("link", { name: "路线" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
   it("requires confirmation before clearing local trip records", () => {
     const savedState = JSON.stringify({
       version: 2,
@@ -646,14 +684,15 @@ describe("StopPhoto", () => {
       photo.sourceUrl,
     );
     expect(screen.getByText(/CC BY-SA 4.0/)).toBeInTheDocument();
-    expect(screen.getByText(photo.alt)).toBeVisible();
+    expect(screen.queryByText(photo.alt)).not.toBeInTheDocument();
   });
 
-  it("shows the historical Lychee Bay description as a visible caption", () => {
+  it("shows the 1869 Lychee Bay history note as a visible caption", () => {
     const lycheeBay = itineraryStops.find((stop) => stop.id === "pantang")!;
     render(<StopPhoto photo={lycheeBay.photo!} title={lycheeBay.title} priority={false} />);
 
-    expect(screen.getByText("旧时荔枝湾涌水道、文塔与小船")).toBeVisible();
+    expect(screen.getByText("历史照片 · 1869 年")).toBeVisible();
+    expect(screen.queryByText(lycheeBay.photo!.alt)).not.toBeInTheDocument();
   });
 
   it("shows a readable fallback when the local file fails", () => {
@@ -702,5 +741,13 @@ describe("photo metadata", () => {
       expect(stop.photo?.sourceUrl).toMatch(/^https:\/\/commons\.wikimedia\.org\//);
       expect(stop.photo?.license).toMatch(/^(Public domain|CC BY(?:-SA)? \d\.\d)$/);
     }
+  });
+
+  it("adds a historical caption only to the Lychee Bay photo", () => {
+    expect(
+      itineraryStops
+        .filter((stop) => stop.photo?.caption)
+        .map((stop) => ({ id: stop.id, caption: stop.photo?.caption })),
+    ).toEqual([{ id: "pantang", caption: "历史照片 · 1869 年" }]);
   });
 });

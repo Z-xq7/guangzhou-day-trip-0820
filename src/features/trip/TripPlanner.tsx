@@ -182,6 +182,7 @@ export function TripPlanner() {
         onScenarioChange={setScenario}
         onSelectStop={selectStop}
         onToggleStop={toggleStop}
+        onNavigateView={setActiveView}
         selectedNavigationUrl={buildBaiduMapUrl(
           selectedOrigin,
           selectedStop.placeName,
@@ -216,6 +217,7 @@ export function TripPlanner() {
         totalStops={activeStops.length}
         completedBookings={completedBookings}
         budget={budget}
+        onNavigateView={setActiveView}
         onReset={resetLocalTrip}
       />
 

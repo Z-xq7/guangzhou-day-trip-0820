@@ -5,6 +5,7 @@ export type MobileView = "route" | "map" | "todo" | "me";
 export interface StopPhoto {
   src: string;
   alt: string;
+  caption?: string;
   author: string;
   sourceUrl: string;
   license: string;

@@ -33,7 +33,7 @@ export function StopPhoto({ photo, title, priority }: StopPhotoProps) {
       />
       <figcaption>
         <span className="stop-photo-title">真实照片 · {title}</span>
-        <span className="stop-photo-description">{photo.alt}</span>
+        {photo.caption ? <span className="stop-photo-note">{photo.caption}</span> : null}
         <a href={photo.sourceUrl} target="_blank" rel="noreferrer">
           图片来源：{photo.author} · {photo.license}
         </a>

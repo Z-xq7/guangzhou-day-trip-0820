@@ -107,6 +107,7 @@ export const itineraryStops: ItineraryStop[] = [
     photo: {
       src: "images/stops/03-lychee-bay.webp",
       alt: "旧时荔枝湾涌水道、文塔与小船",
+      caption: "历史照片 · 1869 年",
       author: "Milton Miller",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:%E6%96%87%E5%A1%94%E9%9B%B2%E6%B4%A5%E9%96%A3.jpg",
       license: "Public domain",
