@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   bookingItems,
   budgetItems,
@@ -144,6 +145,7 @@ export function NextStopBar({ nextStop, navigationUrl, onSelect }: NextStopBarPr
 }
 
 export interface RouteViewProps {
+  isActive?: boolean;
   scenario: Scenario;
   stops: ItineraryStop[];
   selectedStop: ItineraryStop;
@@ -157,6 +159,7 @@ export interface RouteViewProps {
 }
 
 export function RouteView({
+  isActive = true,
   scenario,
   stops,
   selectedStop,
@@ -169,7 +172,12 @@ export function RouteView({
   selectedNavigationUrl,
 }: RouteViewProps) {
   return (
-    <section id="route" className="app-view" aria-label="路线规划">
+    <section
+      id="route"
+      className={`app-view${isActive ? " is-active" : ""}`}
+      aria-label="路线规划"
+      aria-hidden={isActive ? undefined : true}
+    >
       <header className="site-header">
         <a className="brand" href="#top" aria-label="返回行程顶部">
           <span className="brand-seal" aria-hidden="true">粤</span>
@@ -256,6 +264,7 @@ export function RouteView({
 }
 
 export interface MapViewProps {
+  isActive?: boolean;
   stops: ItineraryStop[];
   selectedStop: ItineraryStop;
   nextStop: ItineraryStop;
@@ -265,6 +274,7 @@ export interface MapViewProps {
 }
 
 export function MapView({
+  isActive = true,
   stops,
   selectedStop,
   nextStop,
@@ -272,8 +282,34 @@ export function MapView({
   nextNavigationUrl,
   onSelectStop,
 }: MapViewProps) {
+  const [copyResult, setCopyResult] = useState<{
+    status: "idle" | "copied" | "manual";
+    placeText: string | null;
+  }>({ status: "idle", placeText: null });
+  const placeText = `广州 ${selectedStop.placeName}`;
+  const copyStatus = copyResult.placeText === placeText ? copyResult.status : "idle";
+
+  const copyPlace = async () => {
+    const textToCopy = placeText;
+    try {
+      if (!navigator.clipboard?.writeText) {
+        setCopyResult({ status: "manual", placeText: textToCopy });
+        return;
+      }
+      await navigator.clipboard.writeText(textToCopy);
+      setCopyResult({ status: "copied", placeText: textToCopy });
+    } catch {
+      setCopyResult({ status: "manual", placeText: textToCopy });
+    }
+  };
+
   return (
-    <section id="map" className="app-view" aria-label="地图与导航">
+    <section
+      id="map"
+      className={`app-view${isActive ? " is-active" : ""}`}
+      aria-label="地图与导航"
+      aria-hidden={isActive ? undefined : true}
+    >
       <section className="route-section section-shell" aria-labelledby="map-title">
         <div className="section-heading">
           <div><p className="eyebrow">ROUTE AT A GLANCE</p><h2 id="map-title">路线总览</h2></div>
@@ -295,6 +331,12 @@ export function MapView({
               <div><span>地点</span><strong>{selectedStop.placeName}</strong></div>
               <div><span>下一站</span><strong>{nextStop.title}</strong></div>
             </div>
+            <button type="button" onClick={copyPlace}>
+              {copyStatus === "copied" ? "已复制地点" : "复制地点"}
+            </button>
+            {copyStatus === "manual" ? (
+              <code aria-label="手动复制地点">{placeText}</code>
+            ) : null}
             <a
               className="button button-ghost detail-nav"
               href={placeUrl}
@@ -319,13 +361,19 @@ export function MapView({
 }
 
 export interface TodoViewProps {
+  isActive?: boolean;
   completedIds: string[];
   onToggle: (id: string) => void;
 }
 
-export function TodoView({ completedIds, onToggle }: TodoViewProps) {
+export function TodoView({ isActive = true, completedIds, onToggle }: TodoViewProps) {
   return (
-    <section id="todo" className="app-view" aria-label="行前待办">
+    <section
+      id="todo"
+      className={`app-view${isActive ? " is-active" : ""}`}
+      aria-label="行前待办"
+      aria-hidden={isActive ? undefined : true}
+    >
       <section className="prep-grid section-shell" id="checklist" aria-labelledby="checklist-title">
         <div className="checklist-card paper-card">
           <div className="section-heading compact">
@@ -348,6 +396,7 @@ export function TodoView({ completedIds, onToggle }: TodoViewProps) {
 }
 
 export interface MyTripViewProps {
+  isActive?: boolean;
   scenario: Scenario;
   completedStops: number;
   totalStops: number;
@@ -363,14 +412,21 @@ const scenarioLabels: Record<Scenario, string> = {
 };
 
 export function MyTripView({
+  isActive = true,
   scenario,
   completedStops,
   totalStops,
   completedBookings,
   budget,
+  onReset,
 }: MyTripViewProps) {
   return (
-    <section id="me" className="app-view" aria-label="我的行程">
+    <section
+      id="me"
+      className={`app-view${isActive ? " is-active" : ""}`}
+      aria-label="我的行程"
+      aria-hidden={isActive ? undefined : true}
+    >
       <section className="quick-stats" aria-label="我的行程进度">
         <div><span className="stat-kicker">当前模式</span><strong>{scenarioLabels[scenario]}</strong><small>可随时切换</small></div>
         <div><span className="stat-kicker">景点打卡</span><strong>{completedStops}/{totalStops}</strong><small>仅保存在本机</small></div>
@@ -412,6 +468,7 @@ export function MyTripView({
           ))}
         </div>
         <p className="source-note">车次、船名和精确票价将在官方开放 8 月 20 日班次后才能锁定；页面当前只给安全时间窗。</p>
+        <button type="button" onClick={onReset}>清除本机记录</button>
       </section>
 
       <footer>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { budgetItems, itineraryStops } from "../../data/itinerary";
-import type { ItineraryStop, Scenario } from "../../data/types";
+import type { ItineraryStop, MobileView, Scenario } from "../../data/types";
 import {
   applyScenario,
   buildBaiduMapUrl,
@@ -12,9 +12,11 @@ import {
 import {
   defaultTripState,
   getTripStateSnapshot,
+  resetTripState,
   subscribeTripState,
   updateTripState,
 } from "./trip-storage";
+import { MobileAppShell } from "./MobileAppShell";
 import { MapView, MyTripView, NextStopBar, RouteView, TodoView } from "./TripViews";
 
 export { BookingChecklist, ScenarioSwitcher, TripTimeline } from "./TripViews";
@@ -29,7 +31,17 @@ function getNavigationOrigin(stops: ItineraryStop[], destinationId: string) {
   return !previous || previous.id === "rail-outbound" ? "广州南站" : previous.placeName;
 }
 
-const keepExistingRecords = () => undefined;
+const mobileViews: MobileView[] = ["route", "map", "todo", "me"];
+
+function parseViewHash(hash: string): MobileView | null {
+  const value = hash.replace(/^#/, "") as MobileView;
+  return mobileViews.includes(value) ? value : null;
+}
+
+function updateActiveView(view: MobileView) {
+  if (getTripStateSnapshot().activeView === view) return;
+  updateTripState((current) => ({ ...current, activeView: view }));
+}
 
 export function TripPlanner() {
   const budget = useMemo(() => summarizeBudget(budgetItems), []);
@@ -62,6 +74,27 @@ export function TripPlanner() {
     }
   }, [activeStops, fallbackSelectedStop, selectedId]);
 
+  useEffect(() => {
+    const initialView = parseViewHash(window.location.hash);
+    if (initialView) {
+      updateActiveView(initialView);
+    } else {
+      window.history.replaceState(null, "", `#${getTripStateSnapshot().activeView}`);
+    }
+
+    const syncViewFromHistory = () => {
+      const historyView = parseViewHash(window.location.hash);
+      if (historyView) updateActiveView(historyView);
+    };
+
+    window.addEventListener("popstate", syncViewFromHistory);
+    window.addEventListener("hashchange", syncViewFromHistory);
+    return () => {
+      window.removeEventListener("popstate", syncViewFromHistory);
+      window.removeEventListener("hashchange", syncViewFromHistory);
+    };
+  }, []);
+
   const completedCount = activeStops.filter((stop) =>
     tripState.completedStopIds.includes(stop.id),
   ).length;
@@ -89,9 +122,23 @@ export function TripPlanner() {
     }));
   }, []);
 
+  const setActiveView = useCallback((view: MobileView) => {
+    updateActiveView(view);
+    if (window.location.hash !== `#${view}`) {
+      window.history.pushState(null, "", `#${view}`);
+    }
+  }, []);
+
+  const resetLocalTrip = useCallback(() => {
+    if (!window.confirm("确定清除当前设备上的模式、打卡、待办和最近功能吗？")) return;
+    resetTripState();
+    window.history.replaceState(null, "", "#route");
+  }, []);
+
   return (
     <main>
       <RouteView
+        isActive={tripState.activeView === "route"}
         scenario={tripState.scenario}
         stops={activeStops}
         selectedStop={selectedStop}
@@ -108,6 +155,7 @@ export function TripPlanner() {
         )}
       />
       <MapView
+        isActive={tripState.activeView === "map"}
         stops={activeStops}
         selectedStop={selectedStop}
         nextStop={nextStop}
@@ -119,14 +167,19 @@ export function TripPlanner() {
         )}
         onSelectStop={selectStop}
       />
-      <TodoView completedIds={tripState.bookingIds} onToggle={toggleBooking} />
+      <TodoView
+        isActive={tripState.activeView === "todo"}
+        completedIds={tripState.bookingIds}
+        onToggle={toggleBooking}
+      />
       <MyTripView
+        isActive={tripState.activeView === "me"}
         scenario={tripState.scenario}
         completedStops={completedCount}
         totalStops={activeStops.length}
         completedBookings={completedBookings}
         budget={budget}
-        onReset={keepExistingRecords}
+        onReset={resetLocalTrip}
       />
 
       <NextStopBar
@@ -134,6 +187,7 @@ export function TripPlanner() {
         navigationUrl={buildBaiduMapUrl(nextOrigin, nextStop.placeName, nextStop.navigationMode)}
         onSelect={selectStop}
       />
+      <MobileAppShell activeView={tripState.activeView} onChange={setActiveView} />
     </main>
   );
 }
