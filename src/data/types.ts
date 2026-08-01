@@ -1,5 +1,15 @@
 export type Scenario = "normal" | "rain" | "delay";
 
+export type MobileView = "route" | "map" | "todo" | "me";
+
+export interface StopPhoto {
+  src: string;
+  alt: string;
+  author: string;
+  sourceUrl: string;
+  license: string;
+}
+
 export interface ScheduleEntry {
   id: string;
   title: string;
@@ -21,6 +31,7 @@ export interface ItineraryStop extends ScheduleEntry {
   navigationMode: "walk" | "bus" | "car";
   transport: string;
   position?: [number, number];
+  photo?: StopPhoto;
   showOnMap: boolean;
   comparisons?: ChoiceComparison[];
 }
@@ -66,8 +77,9 @@ export interface SourceInfo {
 }
 
 export interface TripState {
-  version: 1;
+  version: 2;
   scenario: Scenario;
   completedStopIds: string[];
   bookingIds: string[];
+  activeView: MobileView;
 }

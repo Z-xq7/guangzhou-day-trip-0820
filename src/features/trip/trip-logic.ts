@@ -49,15 +49,37 @@ export function summarizeBudget(items: BudgetItem[]) {
   };
 }
 
-export function buildAmapNavigationUrl(destinationName: string, mode: "walk" | "bus" | "car") {
+const baiduModes = {
+  walk: "walking",
+  bus: "transit",
+  car: "driving",
+} as const;
+
+const BAIDU_SOURCE = "webapp.Z-xq7.guangzhou-day-trip";
+
+export function buildBaiduMapUrl(
+  originName: string,
+  destinationName: string,
+  mode: "walk" | "bus" | "car",
+) {
   const query = new URLSearchParams({
-    from: ",,",
-    to: `,,${destinationName}`,
-    mode,
-    policy: mode === "bus" ? "0" : "1",
-    src: "guangzhou-day-trip",
-    callnative: "1",
+    origin: `name:广州 ${originName}`,
+    destination: `name:广州 ${destinationName}`,
+    mode: baiduModes[mode],
+    region: "广州",
+    output: "html",
+    src: BAIDU_SOURCE,
   });
 
-  return `https://uri.amap.com/navigation?${query.toString()}`;
+  return `https://api.map.baidu.com/direction?${query.toString()}`;
+}
+
+export function buildBaiduPlaceUrl(placeName: string) {
+  const query = new URLSearchParams({
+    query: `广州 ${placeName}`,
+    region: "广州",
+    output: "html",
+    src: BAIDU_SOURCE,
+  });
+  return `https://api.map.baidu.com/place/search?${query.toString()}`;
 }

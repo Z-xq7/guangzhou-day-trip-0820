@@ -1,44 +1,84 @@
-import type { TripState } from "../../data/types";
+import type { Scenario, TripState } from "../../data/types";
 
-export const STORAGE_KEY = "guangzhou-day-trip:v1";
+export const STORAGE_KEY = "guangzhou-day-trip:v2";
+export const LEGACY_STORAGE_KEY = "guangzhou-day-trip:v1";
 export const TRIP_STATE_CHANGE_EVENT = "guangzhou-day-trip:state-change";
 
 export const defaultTripState: TripState = {
-  version: 1,
+  version: 2,
   scenario: "normal",
   completedStopIds: [],
   bookingIds: [],
+  activeView: "route",
 };
 
 interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem(key: string): void;
 }
 
-function isTripState(value: unknown): value is TripState {
+interface LegacyTripState {
+  version: 1;
+  scenario: Scenario;
+  completedStopIds: string[];
+  bookingIds: string[];
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function hasTripProgress(value: unknown): value is Omit<LegacyTripState, "version"> {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<TripState>;
+  const candidate = value as Partial<LegacyTripState>;
   return (
-    candidate.version === 1 &&
     ["normal", "rain", "delay"].includes(candidate.scenario ?? "") &&
-    Array.isArray(candidate.completedStopIds) &&
-    Array.isArray(candidate.bookingIds)
+    isStringArray(candidate.completedStopIds) &&
+    isStringArray(candidate.bookingIds)
   );
+}
+
+function isV2TripState(value: unknown): value is TripState {
+  if (!hasTripProgress(value)) return false;
+  const candidate = value as Partial<TripState>;
+  return candidate.version === 2 && ["route", "map", "todo", "me"].includes(candidate.activeView ?? "");
+}
+
+function isV1TripState(value: unknown): value is LegacyTripState {
+  return hasTripProgress(value) && (value as Partial<LegacyTripState>).version === 1;
 }
 
 export function saveTripState(storage: StorageLike, state: TripState) {
   storage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+function parseStoredState(raw: string | null): unknown {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
+
 export function loadTripState(storage: StorageLike): TripState {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) return defaultTripState;
-    const parsed: unknown = JSON.parse(raw);
-    return isTripState(parsed) ? parsed : defaultTripState;
+    const current = parseStoredState(storage.getItem(STORAGE_KEY));
+    if (isV2TripState(current)) return current;
+
+    const legacy = parseStoredState(storage.getItem(LEGACY_STORAGE_KEY));
+    if (isV1TripState(legacy)) return { ...legacy, version: 2, activeView: "route" };
+
+    return defaultTripState;
   } catch {
     return defaultTripState;
   }
+}
+
+export function clearTripState(storage: StorageLike) {
+  storage.removeItem(STORAGE_KEY);
+  storage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 let cachedRawState: string | null | undefined;
@@ -67,6 +107,12 @@ export function subscribeTripState(onChange: () => void) {
 export function updateTripState(updater: (current: TripState) => TripState) {
   const nextState = updater(getTripStateSnapshot());
   saveTripState(window.localStorage, nextState);
+  cachedRawState = undefined;
+  window.dispatchEvent(new Event(TRIP_STATE_CHANGE_EVENT));
+}
+
+export function resetTripState() {
+  clearTripState(window.localStorage);
   cachedRawState = undefined;
   window.dispatchEvent(new Event(TRIP_STATE_CHANGE_EVENT));
 }

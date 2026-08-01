@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  clearTripState,
   defaultTripState,
+  LEGACY_STORAGE_KEY,
   loadTripState,
   saveTripState,
   STORAGE_KEY,
@@ -16,22 +18,72 @@ class MemoryStorage {
   setItem(key: string, value: string) {
     this.values.set(key, value);
   }
+
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
 }
 
 describe("trip state storage", () => {
-  it("persists the selected scenario and completed stops under a versioned key", () => {
+  it("persists version 2 including the active mobile view", () => {
     const storage = new MemoryStorage();
     const state = {
-      version: 1 as const,
+      version: 2 as const,
       scenario: "rain" as const,
-      completedStopIds: ["tea", "chen-clan"],
+      completedStopIds: ["tea"],
       bookingIds: ["train-outbound"],
+      activeView: "map" as const,
     };
 
     saveTripState(storage, state);
 
-    expect(JSON.parse(storage.getItem(STORAGE_KEY) ?? "{}")).toEqual(state);
     expect(loadTripState(storage)).toEqual(state);
+  });
+
+  it("migrates version 1 without losing trip progress", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      scenario: "delay",
+      completedStopIds: ["chen-clan"],
+      bookingIds: ["cruise-ticket"],
+    }));
+
+    expect(loadTripState(storage)).toEqual({
+      version: 2,
+      scenario: "delay",
+      completedStopIds: ["chen-clan"],
+      bookingIds: ["cruise-ticket"],
+      activeView: "route",
+    });
+  });
+
+  it("migrates a valid version 1 record when the version 2 record is invalid", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, "not-json");
+    storage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      scenario: "rain",
+      completedStopIds: ["tea"],
+      bookingIds: ["train-outbound"],
+    }));
+
+    expect(loadTripState(storage)).toEqual({
+      version: 2,
+      scenario: "rain",
+      completedStopIds: ["tea"],
+      bookingIds: ["train-outbound"],
+      activeView: "route",
+    });
+  });
+
+  it("clears both current and legacy records", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, "current");
+    storage.setItem(LEGACY_STORAGE_KEY, "legacy");
+    clearTripState(storage);
+    expect(storage.getItem(STORAGE_KEY)).toBeNull();
+    expect(storage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
   });
 
   it("returns a safe default when saved JSON is malformed", () => {
@@ -45,8 +97,21 @@ describe("trip state storage", () => {
     const storage = new MemoryStorage();
     storage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ version: 2, scenario: "normal", completedStopIds: [] }),
+      JSON.stringify({ version: 3, scenario: "normal", completedStopIds: [] }),
     );
+
+    expect(loadTripState(storage)).toEqual(defaultTripState);
+  });
+
+  it("rejects records whose completed-stop IDs are not strings", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      scenario: "normal",
+      completedStopIds: [1],
+      bookingIds: [],
+      activeView: "route",
+    }));
 
     expect(loadTripState(storage)).toEqual(defaultTripState);
   });

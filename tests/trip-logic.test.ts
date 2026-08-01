@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   applyScenario,
-  buildAmapNavigationUrl,
+  buildBaiduMapUrl,
+  buildBaiduPlaceUrl,
   summarizeBudget,
   validateSchedule,
 } from "../src/features/trip/trip-logic";
@@ -51,14 +52,32 @@ describe("budget summary", () => {
   });
 });
 
-describe("Amap navigation", () => {
-  it("encodes a place-name route without requesting location in the website", () => {
-    const url = new URL(buildAmapNavigationUrl("陈家祠", "bus"));
+describe("Baidu Map URI", () => {
+  it("builds a named transit route without requesting browser location", () => {
+    const url = new URL(buildBaiduMapUrl("广州南站", "广州酒家文昌总店", "bus"));
 
-    expect(url.origin + url.pathname).toBe("https://uri.amap.com/navigation");
-    expect(url.searchParams.get("from")).toBe(",,");
-    expect(url.searchParams.get("to")).toBe(",,陈家祠");
-    expect(url.searchParams.get("mode")).toBe("bus");
-    expect(url.searchParams.get("callnative")).toBe("1");
+    expect(url.origin + url.pathname).toBe("https://api.map.baidu.com/direction");
+    expect(url.searchParams.get("origin")).toBe("name:广州 广州南站");
+    expect(url.searchParams.get("destination")).toBe("name:广州 广州酒家文昌总店");
+    expect(url.searchParams.get("mode")).toBe("transit");
+    expect(url.searchParams.get("region")).toBe("广州");
+    expect(url.searchParams.get("output")).toBe("html");
+    expect(url.searchParams.has("location")).toBe(false);
+  });
+
+  it.each([
+    ["walk", "walking"],
+    ["bus", "transit"],
+    ["car", "driving"],
+  ] as const)("maps %s to Baidu mode %s", (mode, expected) => {
+    const url = new URL(buildBaiduMapUrl("陈家祠", "沙面岛", mode));
+    expect(url.searchParams.get("mode")).toBe(expected);
+  });
+
+  it("builds a Guangzhou-scoped place search", () => {
+    const url = new URL(buildBaiduPlaceUrl("陈家祠"));
+    expect(url.origin + url.pathname).toBe("https://api.map.baidu.com/place/search");
+    expect(url.searchParams.get("query")).toBe("广州 陈家祠");
+    expect(url.searchParams.get("region")).toBe("广州");
   });
 });
