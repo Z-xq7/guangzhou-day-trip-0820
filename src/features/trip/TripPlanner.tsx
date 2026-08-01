@@ -10,14 +10,14 @@ import {
   sources,
 } from "../../data/itinerary";
 import type { BookingItem, ItineraryStop, Scenario } from "../../data/types";
-import { applyScenario, buildAmapNavigationUrl, summarizeBudget } from "./trip-logic";
+import { applyScenario, buildBaiduMapUrl, summarizeBudget } from "./trip-logic";
 import {
   defaultTripState,
   getTripStateSnapshot,
   subscribeTripState,
   updateTripState,
 } from "./trip-storage";
-import { TripMap } from "./TripMap";
+import { RouteDiagram } from "./RouteDiagram";
 
 interface ScenarioSwitcherProps {
   value: Scenario;
@@ -135,6 +135,12 @@ function toggleId(ids: string[], id: string) {
   return ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id];
 }
 
+function getNavigationOrigin(stops: ItineraryStop[], destinationId: string) {
+  const index = stops.findIndex((stop) => stop.id === destinationId);
+  const previous = index > 0 ? stops[index - 1] : undefined;
+  return !previous || previous.id === "rail-outbound" ? "广州南站" : previous.placeName;
+}
+
 export function TripPlanner() {
   const budget = useMemo(() => summarizeBudget(budgetItems), []);
   const tripState = useSyncExternalStore(
@@ -241,11 +247,11 @@ export function TripPlanner() {
       <section className="route-section section-shell" id="route" aria-labelledby="route-title">
         <div className="section-heading">
           <div><p className="eyebrow">ROUTE AT A GLANCE</p><h2 id="route-title">路线总览</h2></div>
-          <p>点击地图或时间轴，下面会展开这一站真正需要的信息。</p>
+          <p>点击路线图或时间轴，下面会展开这一站真正需要的信息。</p>
         </div>
         <div className="route-layout">
-          <div className="map-column">
-            <TripMap stops={activeStops} selectedId={selectedStop.id} onSelect={selectStop} />
+          <div className="route-diagram-column">
+            <RouteDiagram stops={activeStops} selectedId={selectedStop.id} onSelect={selectStop} />
           </div>
           <article className="stop-detail" id="stop-detail" aria-live="polite">
             <div className="detail-topline">
@@ -283,11 +289,15 @@ export function TripPlanner() {
             )}
             <a
               className="button button-primary detail-nav"
-              href={buildAmapNavigationUrl(selectedStop.placeName, selectedStop.navigationMode)}
+              href={buildBaiduMapUrl(
+                getNavigationOrigin(activeStops, selectedStop.id),
+                selectedStop.placeName,
+                selectedStop.navigationMode,
+              )}
               target="_blank"
               rel="noreferrer"
             >
-              在高德打开 {selectedStop.shortTitle} <span aria-hidden="true">↗</span>
+              在百度地图打开 {selectedStop.shortTitle} <span aria-hidden="true">↗</span>
             </a>
           </article>
         </div>
@@ -367,7 +377,17 @@ export function TripPlanner() {
         <div className="next-stop-bar" aria-label="下一站快捷操作">
           <div><span>下一站 · {nextStop.start}</span><strong>{nextStop.title}</strong></div>
           <button type="button" onClick={() => selectStop(nextStop.id)}>看详情</button>
-          <a href={buildAmapNavigationUrl(nextStop.placeName, nextStop.navigationMode)} target="_blank" rel="noreferrer">高德导航 ↗</a>
+          <a
+            href={buildBaiduMapUrl(
+              getNavigationOrigin(activeStops, nextStop.id),
+              nextStop.placeName,
+              nextStop.navigationMode,
+            )}
+            target="_blank"
+            rel="noreferrer"
+          >
+            百度地图导航 ↗
+          </a>
         </div>
       )}
     </main>

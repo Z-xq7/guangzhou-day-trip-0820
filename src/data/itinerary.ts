@@ -48,7 +48,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "广州酒家文昌总店",
     navigationMode: "bus",
     transport: "广州南 → 长寿路 · 地铁约 50 分",
-    position: [23.1168, 113.2496],
     showOnMap: true,
     comparisons: [
       { id: "full-tea", badge: "推荐", title: "完整早茶", cost: "¥140–220／两人", time: "65 分钟", description: "体验茶楼文化，覆盖四类经典点心。", recommended: true },
@@ -72,7 +71,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "陈家祠",
     navigationMode: "car",
     transport: "文昌总店 → 陈家祠 · 短程打车约 10 分",
-    position: [23.1294, 113.2465],
     showOnMap: true,
   },
   {
@@ -92,7 +90,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "泮塘五约历史文化街区",
     navigationMode: "car",
     transport: "陈家祠 → 泮塘 · 短程打车约 12 分",
-    position: [23.1258, 113.2309],
     showOnMap: true,
   },
   {
@@ -112,7 +109,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "粤剧艺术博物馆",
     navigationMode: "walk",
     transport: "泮塘 → 永庆坊 · 沿荔枝湾步行",
-    position: [23.1178, 113.2381],
     showOnMap: true,
   },
   {
@@ -132,7 +128,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "宝华路",
     navigationMode: "walk",
     transport: "永庆坊 → 宝华路 · 步行约 12 分",
-    position: [23.1163, 113.2425],
     showOnMap: true,
     comparisons: [
       { id: "snack-crawl", badge: "推荐", title: "三店小吃巡游", cost: "¥70–120／两人", time: "50 分钟", description: "味型更多，也不容易吃撑。", recommended: true },
@@ -156,7 +151,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "沙面岛",
     navigationMode: "walk",
     transport: "宝华路 → 沙面 · 步行约 15 分",
-    position: [23.109, 113.2394],
     showOnMap: true,
   },
   {
@@ -176,7 +170,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "北京路步行街",
     navigationMode: "bus",
     transport: "黄沙 → 北京路 · 地铁 6 号线",
-    position: [23.1241, 113.2636],
     showOnMap: true,
   },
   {
@@ -196,7 +189,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "广州大佛寺",
     navigationMode: "walk",
     transport: "北京路内步行",
-    position: [23.1228, 113.264],
     showOnMap: true,
     comparisons: [
       { id: "claypot", badge: "推荐", title: "啫啫煲粤菜", cost: "¥160–260／两人", time: "60 分钟", description: "锅气足，和早茶、小吃形成不同体验。", recommended: true },
@@ -220,7 +212,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "天字码头",
     navigationMode: "walk",
     transport: "大佛寺 → 天字码头 · 步行约 18 分",
-    position: [23.1118, 113.2654],
     showOnMap: true,
     comparisons: [
       { id: "1900", badge: "推荐", title: "19:00 左右班次", cost: "¥98–150／人", time: "20:15 左右结束", description: "夜景与返程余量最平衡。", recommended: true },
@@ -244,7 +235,6 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "广州南站",
     navigationMode: "bus",
     transport: "海珠广场 → 广州南 · 地铁约 35 分",
-    position: [22.9893, 113.269],
     showOnMap: true,
   },
 ];
@@ -302,5 +292,11 @@ export const sources: SourceInfo[] = [
   { id: "metro", title: "广州地铁线网", publisher: "广州市人民政府", verifiedAt: "2026-08-01", url: "https://www.gz.gov.cn/zwfw/zxfw/jtfw/content/post_10310508.html" },
   { id: "rail", title: "火车票预售期", publisher: "中国铁路 12306", verifiedAt: "2026-08-01", url: "https://hzfw.12306.cn/zgzfw/resources/web/ysqcx.html" },
   { id: "cruise", title: "珠江夜游官方信息", publisher: "广州珠江游", verifiedAt: "2026-08-01", url: "https://gzzjyy.cn/" },
-  { id: "amap", title: "移动端路线 URI", publisher: "高德开放平台", verifiedAt: "2026-08-01", url: "https://developer.amap.com/api/uri-api/guide/travel/route" },
+  {
+    id: "baidu-uri",
+    title: "地点搜索与路线调起 URI",
+    publisher: "百度地图开放平台",
+    verifiedAt: "2026-08-01",
+    url: "https://lbsyun.baidu.com/docs/webapi?title=mapadjustment%2Furi",
+  },
 ];

@@ -21,6 +21,12 @@ test("builds a repository-scoped static trip planner", async () => {
     await access(new URL(relativePath, distRoot));
   }
 
-  await access(new URL("assets/leaflet.css", distRoot));
-  await access(new URL("assets/images/marker-icon.png", distRoot));
+  const scripts = await Promise.all(
+    entryUrls
+      .filter((url) => url.endsWith(".js"))
+      .map((url) => readFile(new URL(url.slice(repositoryBase.length), distRoot), "utf8")),
+  );
+
+  assert.doesNotMatch(scripts.join("\n"), /tile\.openstreetmap\.org|leaflet/i);
+  await assert.rejects(access(new URL("assets/leaflet.css", distRoot)));
 });

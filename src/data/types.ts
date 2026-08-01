@@ -30,7 +30,6 @@ export interface ItineraryStop extends ScheduleEntry {
   placeName: string;
   navigationMode: "walk" | "bus" | "car";
   transport: string;
-  position?: [number, number];
   photo?: StopPhoto;
   showOnMap: boolean;
   comparisons?: ChoiceComparison[];

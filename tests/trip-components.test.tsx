@@ -9,13 +9,8 @@ import {
   TripPlanner,
   TripTimeline,
 } from "../src/features/trip/TripPlanner";
-import * as tripMapModule from "../src/features/trip/TripMap";
-
-const {
-  MAP_LOAD_ROOT_MARGIN,
-  MAP_MARKER_SIZE,
-  RouteFallback,
-} = tripMapModule;
+import { applyScenario } from "../src/features/trip/trip-logic";
+import { RouteDiagram } from "../src/features/trip/RouteDiagram";
 
 afterEach(cleanup);
 
@@ -31,9 +26,22 @@ describe("TripPlanner", () => {
 
     expect(screen.queryByRole("button", { name: /泮塘五约/ })).not.toBeInTheDocument();
     expect(screen.getByText(/雨天把时间留在室内/)).toBeInTheDocument();
-    expect(JSON.parse(window.localStorage.getItem("guangzhou-day-trip:v1") ?? "{}").scenario).toBe(
+    expect(JSON.parse(window.localStorage.getItem("guangzhou-day-trip:v2") ?? "{}").scenario).toBe(
       "rain",
     );
+  });
+
+  it("opens Baidu navigation from the preceding active stop", () => {
+    window.localStorage.clear();
+    render(<TripPlanner />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^09:40地标陈家祠/ }));
+
+    const navigationUrl = new URL(
+      screen.getByRole("link", { name: /在百度地图打开 岭南雕花/ }).getAttribute("href") ?? "",
+    );
+    expect(navigationUrl.searchParams.get("origin")).toBe("name:广州 广州酒家文昌总店");
+    expect(navigationUrl.searchParams.get("destination")).toBe("name:广州 陈家祠");
   });
 });
 
@@ -92,68 +100,43 @@ describe("BookingChecklist", () => {
   });
 });
 
-describe("TripMap assets", () => {
-  it("resolves deferred assets inside a GitHub Pages repository base", () => {
-    const resolveTripAssetUrl = (
-      tripMapModule as typeof tripMapModule & {
-        resolveTripAssetUrl?: (path: string, baseUrl?: string) => string;
-      }
-    ).resolveTripAssetUrl;
-
-    expect(resolveTripAssetUrl).toBeTypeOf("function");
-    expect(
-      resolveTripAssetUrl?.(
-        "/assets/leaflet.css",
-        "https://z-xq7.github.io/guangzhou-day-trip-0820/",
-      ),
-    ).toBe(
-      "https://z-xq7.github.io/guangzhou-day-trip-0820/assets/leaflet.css",
+describe("RouteDiagram", () => {
+  it("shows the active route as an explicitly non-geographic diagram", () => {
+    render(
+      <RouteDiagram
+        stops={itineraryStops.slice(1, 4)}
+        selectedId="tea"
+        onSelect={() => undefined}
+      />,
     );
+
+    expect(screen.getByText("游览顺序示意")).toBeInTheDocument();
+    expect(screen.queryByText(/正在展开广州地图|地图暂时没有加载/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(3);
   });
 
-  it("falls back when map tile requests hang", () => {
-    const scheduleMapLoadFallback = (
-      tripMapModule as typeof tripMapModule & {
-        scheduleMapLoadFallback?: (
-          onTimeout: () => void,
-          schedule: (callback: () => void, delay: number) => number,
-        ) => number;
-      }
-    ).scheduleMapLoadFallback;
-    const onTimeout = vi.fn();
-    const schedule = vi.fn((callback: () => void, delay: number) => {
-      expect(delay).toBe(8_000);
-      callback();
-      return 42;
-    });
-
-    expect(scheduleMapLoadFallback).toBeTypeOf("function");
-    expect(scheduleMapLoadFallback?.(onTimeout, schedule)).toBe(42);
-    expect(onTimeout).toHaveBeenCalledOnce();
-  });
-});
-
-describe("RouteFallback", () => {
-  it("keeps the route usable when map tiles are unavailable", () => {
+  it("selects a station and marks the current one", () => {
     const onSelect = vi.fn();
     render(
-      <RouteFallback
+      <RouteDiagram
         stops={itineraryStops.slice(1, 4)}
         selectedId="tea"
         onSelect={onSelect}
       />,
     );
 
-    expect(screen.getByText("地图暂时没有加载出来")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /陈家祠/ }));
+    expect(screen.getByRole("button", { name: /08:20.*广州酒家/ })).toHaveAttribute(
+      "aria-current",
+      "location",
+    );
+    fireEvent.click(screen.getByRole("button", { name: /09:40.*陈家祠/ }));
     expect(onSelect).toHaveBeenCalledWith("chen-clan");
   });
 
-  it("keeps interactive map markers at the 44px mobile touch-target minimum", () => {
-    expect(MAP_MARKER_SIZE).toBe(44);
-  });
-
-  it("defers the heavy map bundle until the route is near the viewport", () => {
-    expect(MAP_LOAD_ROOT_MARGIN).toBe("300px");
+  it("renders only stops left by the selected scenario", () => {
+    const rainyStops = applyScenario(itineraryStops, "rain");
+    render(<RouteDiagram stops={rainyStops} selectedId="tea" onSelect={() => undefined} />);
+    expect(screen.queryByRole("button", { name: /泮塘/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /珠江夜游/ })).toBeInTheDocument();
   });
 });

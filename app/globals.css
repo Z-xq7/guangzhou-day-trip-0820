@@ -196,30 +196,24 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .route-section { padding-bottom: 40px; }
 .route-layout { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(390px, 0.92fr); gap: 22px; align-items: stretch; }
-.map-column, .stop-detail { min-height: 640px; }
-.map-frame { height: 100%; min-height: 640px; position: relative; overflow: hidden; border-radius: 18px; border: 1px solid var(--line); background: #dce4d6; box-shadow: var(--shadow); }
-.leaflet-map { width: 100%; height: 100%; min-height: 640px; z-index: 1; filter: saturate(0.7) sepia(0.12) contrast(0.94); }
-.map-loading { position: absolute; inset: 0; z-index: 0; display: grid; place-items: center; color: var(--ink-soft); font-family: var(--serif); }
-.map-legend { position: absolute; z-index: 500; left: 14px; bottom: 14px; display: flex; gap: 12px; padding: 8px 11px; border-radius: 9px; background: rgba(251,247,239,0.92); border: 1px solid var(--line); font-size: 10px; box-shadow: 0 5px 20px rgba(23,63,54,0.1); }
-.map-legend span { display: flex; align-items: center; gap: 6px; }
-.legend-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
-.legend-line { width: 18px; border-top: 2px dashed var(--red); }
-.route-marker-shell { background: transparent !important; border: 0 !important; }
-.route-marker { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--paper-light); color: var(--red); border: 2px solid var(--red); font: 800 12px var(--sans); box-shadow: 0 4px 13px rgba(49,39,29,0.24); transition: transform 180ms ease; }
-.route-marker.is-selected { background: var(--red); color: white; transform: scale(1.18); box-shadow: 0 0 0 7px rgba(184,75,59,0.18); }
-.leaflet-control-attribution { min-height: 44px; display: flex; align-items: center; font-size: 8px !important; }
-.leaflet-control-attribution a { min-height: 44px; display: inline-flex; align-items: center; }
-.leaflet-control-zoom a { width: 44px !important; height: 44px !important; line-height: 44px !important; color: var(--ink) !important; background: var(--paper-light) !important; }
-
-.route-fallback { min-height: 640px; padding: 30px; border-radius: 18px; border: 1px solid var(--line); background: linear-gradient(145deg, #d8e3d5, #efd8b8); box-shadow: var(--shadow); display: grid; align-content: center; gap: 24px; }
-.fallback-copy { display: flex; align-items: center; gap: 15px; }
-.fallback-copy p { margin: 3px 0 0; color: var(--ink-soft); font-size: 12px; }
-.fallback-seal { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 50%; background: var(--red); color: white; font-family: var(--serif); }
-.route-fallback ol { list-style: none; margin: 0; padding: 0 0 0 7px; display: grid; gap: 7px; border-left: 1px dashed rgba(184,75,59,0.5); }
-.route-fallback li { transform: translateX(-14px); }
-.route-fallback button { width: 100%; min-height: 44px; border: 0; border-radius: 10px; background: rgba(255,255,255,0.5); text-align: left; cursor: pointer; }
-.route-fallback button span { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-right: 9px; border-radius: 50%; background: var(--paper-light); color: var(--red); font-weight: 800; }
-.route-fallback button[aria-current] { background: var(--ink); color: white; }
+.route-diagram-column, .stop-detail { min-height: 640px; }
+.route-diagram { min-height: 640px; padding: 30px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(145deg, #d8e3d5, #efd8b8); box-shadow: var(--shadow); }
+.route-diagram-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding-bottom: 22px; border-bottom: 1px dashed rgba(184,75,59,0.45); }
+.route-diagram-heading div { display: grid; gap: 3px; }
+.route-diagram-heading span, .route-diagram-heading small { color: var(--ink-soft); font-size: 10px; letter-spacing: 0.12em; }
+.route-diagram-heading strong { font: 700 28px var(--serif); }
+.route-diagram-heading small { color: var(--red); white-space: nowrap; }
+.route-diagram ol { list-style: none; margin: 25px 0 0; padding: 0 0 0 8px; display: grid; gap: 7px; border-left: 1px dashed rgba(184,75,59,0.55); }
+.route-diagram li { transform: translateX(-19px); }
+.route-diagram button { width: 100%; min-height: 50px; padding: 8px 12px; border: 0; border-radius: 11px; background: rgba(255,255,255,0.5); display: grid; grid-template-columns: 32px 1fr; align-items: center; gap: 10px; color: var(--ink); text-align: left; cursor: pointer; transition: transform 180ms ease, background 180ms ease; }
+.route-diagram button:hover { transform: translateX(3px); background: rgba(255,255,255,0.76); }
+.route-diagram-number { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--paper-light); color: var(--red); font-size: 11px; font-weight: 800; }
+.route-diagram-copy { display: grid; gap: 1px; }
+.route-diagram-copy small { color: var(--ink-soft); font-size: 9px; letter-spacing: 0.08em; }
+.route-diagram-copy strong { font: 700 15px var(--serif); }
+.route-diagram button[aria-current] { background: var(--ink); color: white; box-shadow: 0 9px 20px rgba(23,63,54,0.18); }
+.route-diagram button[aria-current] .route-diagram-number { background: var(--red); color: white; }
+.route-diagram button[aria-current] .route-diagram-copy small { color: rgba(255,255,255,0.68); }
 
 .stop-detail { padding: 34px; border: 1px solid var(--line); border-radius: 18px; background: rgba(251,247,239,0.78); box-shadow: 0 16px 45px rgba(48,45,35,0.07); }
 .detail-topline { display: flex; align-items: center; justify-content: space-between; gap: 15px; color: var(--ink-soft); font-size: 11px; }
@@ -358,7 +352,7 @@ footer > a { margin-left: auto; min-height: 44px; display: inline-flex; align-it
   .hero { grid-template-columns: 1fr 350px; gap: 35px; }
   .hero h1 { font-size: clamp(57px, 8vw, 80px); }
   .route-layout { grid-template-columns: 1fr; }
-  .map-column, .map-frame, .leaflet-map, .route-fallback { min-height: 500px; }
+  .route-diagram-column, .route-diagram { min-height: 500px; }
   .stop-detail { min-height: auto; }
   .source-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -388,8 +382,7 @@ footer > a { margin-left: auto; min-height: 44px; display: inline-flex; align-it
   .scenario-switcher button span { display: none; }
   .scenario-note { align-items: start; padding: 18px; }
   .route-section { padding-bottom: 20px; }
-  .map-column, .map-frame, .leaflet-map, .route-fallback { min-height: 410px; }
-  .map-legend { right: 10px; left: 10px; justify-content: center; }
+  .route-diagram-column, .route-diagram { min-height: 410px; }
   .stop-detail { padding: 25px 21px; }
   .detail-topline { align-items: start; }
   .detail-summary { font-size: 15px; }
@@ -412,8 +405,7 @@ footer > a { margin-left: auto; min-height: 44px; display: inline-flex; align-it
   .site-header nav a:nth-child(2) { display: none; }
   .hero-actions .button { width: 100%; }
   .quick-stats strong { font-size: 24px; }
-  .map-column, .map-frame, .leaflet-map, .route-fallback { min-height: 365px; }
-  .map-legend { font-size: 8px; }
+  .route-diagram-column, .route-diagram { min-height: 365px; }
   .timeline-main { grid-template-columns: 46px 1fr 14px; gap: 6px; }
   .timeline-copy strong { font-size: 14px; }
   .booking-list li { align-items: start; }
