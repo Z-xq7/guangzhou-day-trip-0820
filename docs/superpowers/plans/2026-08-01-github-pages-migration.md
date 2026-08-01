@@ -443,10 +443,10 @@ Run:
 
 ```bash
 git remote add origin https://github.com/Z-xq7/guangzhou-day-trip-0820.git
-git push -u origin main
+git push -u origin HEAD:main
 ```
 
-If `origin` already exists, inspect it first and use `git remote set-url origin https://github.com/Z-xq7/guangzhou-day-trip-0820.git` only when it is not the target above. If authentication fails, stop rather than pushing to the Connector identity `wangxiaogou1379`; complete GitHub's official authentication for `Z-xq7`, then retry the same push.
+The explicit `HEAD:main` refspec publishes the verified isolated branch as the new repository's default branch. If `origin` already exists, inspect it first and use `git remote set-url origin https://github.com/Z-xq7/guangzhou-day-trip-0820.git` only when it is not the target above. If authentication fails, stop rather than pushing to the Connector identity `wangxiaogou1379`; complete GitHub's official authentication for `Z-xq7`, then retry the same push.
 
 - [ ] **Step 4: Verify GitHub Actions and Pages settings**
 
