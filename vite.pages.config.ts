@@ -7,7 +7,7 @@ const fromProjectRoot = (path: string) =>
 
 export default defineConfig({
   base: "/guangzhou-day-trip-0820/",
-  root: fromProjectRoot("./pages/"),
+  root: fromProjectRoot("./static-site/"),
   publicDir: fromProjectRoot("./public/"),
   plugins: [react()],
   build: {

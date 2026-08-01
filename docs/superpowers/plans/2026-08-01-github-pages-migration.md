@@ -118,8 +118,8 @@ git commit -m "fix: resolve map assets under Pages base path"
 
 **Files:**
 - Create: `tests/pages-artifact.test.mjs`
-- Create: `pages/index.html`
-- Create: `pages/main.tsx`
+- Create: `static-site/index.html`
+- Create: `static-site/main.tsx`
 - Create: `vite.pages.config.ts`
 - Modify: `package.json`
 - Modify: `.gitignore`
@@ -174,7 +174,7 @@ Expected: failure reading `dist-pages/index.html`, because the Pages build does 
 
 - [ ] **Step 3: Create the static HTML and React entry**
 
-Create `pages/index.html`:
+Create `static-site/index.html`:
 
 ```html
 <!doctype html>
@@ -196,7 +196,7 @@ Create `pages/index.html`:
 </html>
 ```
 
-Create `pages/main.tsx`:
+Create `static-site/main.tsx`:
 
 ```tsx
 import { createRoot } from "react-dom/client";
@@ -226,7 +226,7 @@ const fromProjectRoot = (path: string) =>
 
 export default defineConfig({
   base: "/guangzhou-day-trip-0820/",
-  root: fromProjectRoot("./pages/"),
+  root: fromProjectRoot("./static-site/"),
   publicDir: fromProjectRoot("./public/"),
   plugins: [react()],
   build: {
@@ -271,7 +271,7 @@ Expected: Vite emits `dist-pages/index.html`, the artifact test verifies reposit
 - [ ] **Step 7: Commit the static build**
 
 ```bash
-git add .gitignore package.json package-lock.json pages tests/pages-artifact.test.mjs vite.pages.config.ts
+git add .gitignore package.json package-lock.json static-site tests/pages-artifact.test.mjs vite.pages.config.ts
 git commit -m "feat: add static GitHub Pages build"
 ```
 
