@@ -9,6 +9,8 @@ export interface StopPhoto {
   author: string;
   sourceUrl: string;
   license: string;
+  licenseUrl: string;
+  modifications: string;
 }
 
 export interface ScheduleEntry {

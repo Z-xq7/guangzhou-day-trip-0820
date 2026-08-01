@@ -8,6 +8,8 @@ import type {
   TravelSegment,
 } from "./types";
 
+const photoModifications = "已裁切、缩放并转为 WebP";
+
 export const itineraryStops: ItineraryStop[] = [
   {
     id: "rail-outbound",
@@ -56,6 +58,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "Colin Zhu from Guangzhou, China",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:Idimsum_20140504.jpg",
       license: "CC BY-SA 2.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/2.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
     comparisons: [
@@ -86,6 +90,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "钉钉",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:Chen_Clan_Ancestral_Hall,_Guangzhou.jpg",
       license: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
   },
@@ -113,6 +119,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "Milton Miller",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:%E6%96%87%E5%A1%94%E9%9B%B2%E6%B4%A5%E9%96%A3.jpg",
       license: "Public domain",
+      licenseUrl: "https://creativecommons.org/publicdomain/mark/1.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
   },
@@ -139,6 +147,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "PQ77wd",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:An_old_building_for_GDOMA.jpg",
       license: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
   },
@@ -165,6 +175,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "DragonSamYU",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:Deep_Fried_Wonton_and_Wonton_Noodle-_Wu_Cai_Ji_-_20131228.jpg",
       license: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
     comparisons: [
@@ -195,6 +207,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "Eduardo M. C.",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:Shamian_Island,_Guangzhou_(5928582517).jpg",
       license: "CC BY 2.0",
+      licenseUrl: "https://creativecommons.org/licenses/by/2.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
   },
@@ -221,6 +235,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "Windmemories",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:20250222_Site_of_the_Ancient_Street_at_Beijing_Road_01.jpg",
       license: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
   },
@@ -247,6 +263,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "xiquinhosilva @ Flickr",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:Front_of_the_Great_Buddha_Temple_in_Guangzhou,_at_night.jpg",
       license: "CC BY 2.0",
+      licenseUrl: "https://creativecommons.org/licenses/by/2.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
     comparisons: [
@@ -277,6 +295,8 @@ export const itineraryStops: ItineraryStop[] = [
       author: "Azwari Nugraha",
       sourceUrl: "https://commons.wikimedia.org/wiki/File:Pearl_River_Guangzhou.jpg",
       license: "CC BY 2.0",
+      licenseUrl: "https://creativecommons.org/licenses/by/2.0/",
+      modifications: photoModifications,
     },
     showOnMap: true,
     comparisons: [

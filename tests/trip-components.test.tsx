@@ -212,15 +212,23 @@ describe("TripViews", () => {
     const creditLinks = within(creditRegion).getAllByRole("link");
     const photoStops = itineraryStops.filter((stop) => stop.photo);
 
-    expect(creditLinks).toHaveLength(9);
-    photoStops.forEach((stop, index) => {
-      const link = creditLinks[index];
-      expect(link).toHaveAttribute("href", stop.photo?.sourceUrl);
-      expect(link).toHaveAttribute("target", "_blank");
-      expect(link).toHaveAttribute("rel", "noreferrer");
-      expect(link).toHaveAccessibleName(
-        `${stop.title} 图片来源：${stop.photo?.author} · ${stop.photo?.license}`,
-      );
+    expect(creditLinks).toHaveLength(18);
+    photoStops.forEach((stop) => {
+      const creditCard = within(creditRegion).getByRole("article", { name: stop.title });
+      const sourceLink = within(creditCard).getByRole("link", {
+        name: `${stop.title} 原图来源`,
+      });
+      expect(sourceLink).toHaveAttribute("href", stop.photo?.sourceUrl);
+      expect(sourceLink).toHaveAttribute("target", "_blank");
+      expect(sourceLink).toHaveAttribute("rel", "noreferrer");
+
+      const licenseLink = within(creditCard).getByRole("link", {
+        name: `${stop.title} 许可：${stop.photo?.license}`,
+      });
+      expect(licenseLink).toHaveAttribute("href", stop.photo?.licenseUrl);
+      expect(licenseLink).toHaveAttribute("target", "_blank");
+      expect(licenseLink).toHaveAttribute("rel", "noreferrer");
+      expect(within(creditCard).getByText(stop.photo!.modifications)).toBeVisible();
     });
   });
 
@@ -954,9 +962,11 @@ describe("StopPhoto", () => {
     author: "Verified Commons author",
     sourceUrl: "https://commons.wikimedia.org/wiki/File:Example.jpg",
     license: "CC BY-SA 4.0",
+    licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+    modifications: "已裁切、缩放并转为 WebP",
   };
 
-  it("renders a local lazy image and visible credit link", () => {
+  it("renders a local lazy image with source, license and modification credits", () => {
     render(<StopPhoto photo={photo} title="陈家祠" priority={false} />);
     const image = screen.getByRole("img", { name: photo.alt });
     expect(image).toHaveAttribute("src", photo.src);
@@ -965,7 +975,11 @@ describe("StopPhoto", () => {
       "href",
       photo.sourceUrl,
     );
-    expect(screen.getByText(/CC BY-SA 4.0/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: `许可：${photo.license}` })).toHaveAttribute(
+      "href",
+      photo.licenseUrl,
+    );
+    expect(screen.getByText(`修改说明：${photo.modifications}`)).toBeVisible();
     expect(screen.queryByText(photo.alt)).not.toBeInTheDocument();
     const media = image.closest(".stop-photo-media");
     const figure = image.closest("figure");
@@ -1035,6 +1049,8 @@ describe("photo metadata", () => {
       expect(stop.photo?.author.length).toBeGreaterThan(1);
       expect(stop.photo?.sourceUrl).toMatch(/^https:\/\/commons\.wikimedia\.org\//);
       expect(stop.photo?.license).toMatch(/^(Public domain|CC BY(?:-SA)? \d\.\d)$/);
+      expect(stop.photo?.licenseUrl).toMatch(/^https:\/\/creativecommons\.org\//);
+      expect(stop.photo?.modifications).toBe("已裁切、缩放并转为 WebP");
     }
   });
 

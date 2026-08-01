@@ -584,17 +584,32 @@ export function MyTripView({
           <h3 id="photo-credits-title">图片来源</h3>
           <div className="photo-credit-grid">
             {photoCredits.map(({ id, title, photo }) => (
-              <a
+              <article
                 key={id}
-                href={photo.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`${title} 图片来源：${photo.author} · ${photo.license}`}
+                aria-labelledby={`photo-credit-${id}`}
               >
-                <strong>{title}</strong>
+                <strong id={`photo-credit-${id}`}>{title}</strong>
                 <span>{photo.author}</span>
-                <small>{photo.license} ↗</small>
-              </a>
+                <div className="photo-credit-links">
+                  <a
+                    href={photo.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`${title} 原图来源`}
+                  >
+                    原图 ↗
+                  </a>
+                  <a
+                    href={photo.licenseUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`${title} 许可：${photo.license}`}
+                  >
+                    {photo.license} ↗
+                  </a>
+                </div>
+                <small>{photo.modifications}</small>
+              </article>
             ))}
           </div>
         </section>
