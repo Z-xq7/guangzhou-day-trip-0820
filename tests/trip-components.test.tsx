@@ -36,6 +36,46 @@ import {
 } from "../src/features/trip/trip-storage";
 
 const initialClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+const initialMatchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+
+function installMatchMedia(initialMatches: boolean) {
+  let matches = initialMatches;
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  const addEventListener = vi.fn(
+    (_type: "change", listener: (event: MediaQueryListEvent) => void) => {
+      listeners.add(listener);
+    },
+  );
+  const removeEventListener = vi.fn(
+    (_type: "change", listener: (event: MediaQueryListEvent) => void) => {
+      listeners.delete(listener);
+    },
+  );
+  const mediaQueryList = {
+    get matches() {
+      return matches;
+    },
+    media: "(max-width: 760px)",
+    onchange: null,
+    addEventListener,
+    removeEventListener,
+  } as unknown as MediaQueryList;
+
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn(() => mediaQueryList),
+  });
+
+  return {
+    addEventListener,
+    removeEventListener,
+    setMatches(nextMatches: boolean) {
+      matches = nextMatches;
+      const event = { matches, media: mediaQueryList.media } as MediaQueryListEvent;
+      act(() => listeners.forEach((listener) => listener(event)));
+    },
+  };
+}
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -55,6 +95,11 @@ afterEach(() => {
     Object.defineProperty(navigator, "clipboard", initialClipboardDescriptor);
   } else {
     Reflect.deleteProperty(navigator, "clipboard");
+  }
+  if (initialMatchMediaDescriptor) {
+    Object.defineProperty(window, "matchMedia", initialMatchMediaDescriptor);
+  } else {
+    Reflect.deleteProperty(window, "matchMedia");
   }
 });
 
@@ -122,7 +167,17 @@ describe("TripViews", () => {
     expect(screen.getByRole("region", { name: "地图与导航" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "行前待办" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "我的行程" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "地图与导航" })).toHaveTextContent(
+      "游览顺序示意",
+    );
+    expect(screen.getByText("不登录、不定位、不上传数据")).toBeInTheDocument();
     expect(screen.getByText(sources[0].title)).toBeInTheDocument();
+
+    const headerNav = within(screen.getByRole("navigation", { name: "页面导航" }));
+    expect(headerNav.getByRole("link", { name: "路线" })).toHaveAttribute("href", "#route");
+    expect(headerNav.getByRole("link", { name: "地图" })).toHaveAttribute("href", "#map");
+    expect(headerNav.getByRole("link", { name: "预约" })).toHaveAttribute("href", "#todo");
+    expect(headerNav.getByRole("link", { name: "预算" })).toHaveAttribute("href", "#me");
   });
 
   it("opens both Baidu place search and next-leg navigation from the map view", () => {
@@ -259,12 +314,17 @@ describe("MobileAppShell", () => {
     const onChange = vi.fn();
     render(<MobileAppShell activeView="route" onChange={onChange} />);
 
-    expect(screen.getByRole("link", { name: "路线" })).toHaveAttribute("aria-current", "page");
-    fireEvent.click(screen.getByRole("link", { name: "地图" }));
+    const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+    expect(mobileNav.getAllByRole("link")).toHaveLength(4);
+    expect(mobileNav.getByRole("link", { name: "路线" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    fireEvent.click(mobileNav.getByRole("link", { name: "地图" }));
     expect(onChange).toHaveBeenCalledWith("map");
-    fireEvent.click(screen.getByRole("link", { name: "待办" }));
+    fireEvent.click(mobileNav.getByRole("link", { name: "待办" }));
     expect(onChange).toHaveBeenCalledWith("todo");
-    fireEvent.click(screen.getByRole("link", { name: "我的" }));
+    fireEvent.click(mobileNav.getByRole("link", { name: "我的" }));
     expect(onChange).toHaveBeenCalledWith("me");
   });
 });
@@ -400,16 +460,50 @@ describe("TripPlanner", () => {
     expect(replaceState).toHaveBeenCalledWith(null, "", "#map");
   });
 
-  it("marks only the active app view for assistive technology", () => {
+  it("keeps all app views in the desktop accessibility tree", () => {
+    const media = installMatchMedia(false);
     window.history.replaceState(null, "", "#map");
     render(<TripPlanner />);
 
     expect(document.getElementById("map")).toHaveClass("is-active");
+    for (const id of ["route", "map", "todo", "me"]) {
+      expect(document.getElementById(id)).not.toHaveAttribute("aria-hidden");
+    }
+    expect(window.matchMedia).toHaveBeenCalledWith("(max-width: 760px)");
+    expect(media.addEventListener).toHaveBeenCalledWith("change", expect.any(Function));
+  });
+
+  it("hides inactive app views only on mobile and cleans up its media listener", () => {
+    const media = installMatchMedia(true);
+    window.history.replaceState(null, "", "#map");
+    const { unmount } = render(<TripPlanner />);
+
     expect(document.getElementById("map")).not.toHaveAttribute("aria-hidden");
     for (const id of ["route", "todo", "me"]) {
-      expect(document.getElementById(id)).not.toHaveClass("is-active");
       expect(document.getElementById(id)).toHaveAttribute("aria-hidden", "true");
     }
+
+    media.setMatches(false);
+    for (const id of ["route", "map", "todo", "me"]) {
+      expect(document.getElementById(id)).not.toHaveAttribute("aria-hidden");
+    }
+
+    const subscribedListener = media.addEventListener.mock.calls[0]?.[1];
+    unmount();
+    expect(media.removeEventListener).toHaveBeenCalledWith("change", subscribedListener);
+  });
+
+  it("exposes a compact mobile trip summary with the current scenario", () => {
+    installMatchMedia(true);
+    render(<TripPlanner />);
+
+    const summary = screen.getByRole("banner", { name: "手机行程摘要" });
+    expect(summary).toHaveTextContent("一日广州");
+    expect(summary).toHaveTextContent("2026.08.20");
+    expect(summary).toHaveTextContent("正常");
+
+    fireEvent.click(screen.getByRole("tab", { name: "下雨" }));
+    expect(summary).toHaveTextContent("下雨");
   });
 
   it("requires confirmation before clearing local trip records", () => {
@@ -552,6 +646,14 @@ describe("StopPhoto", () => {
       photo.sourceUrl,
     );
     expect(screen.getByText(/CC BY-SA 4.0/)).toBeInTheDocument();
+    expect(screen.getByText(photo.alt)).toBeVisible();
+  });
+
+  it("shows the historical Lychee Bay description as a visible caption", () => {
+    const lycheeBay = itineraryStops.find((stop) => stop.id === "pantang")!;
+    render(<StopPhoto photo={lycheeBay.photo!} title={lycheeBay.title} priority={false} />);
+
+    expect(screen.getByText("旧时荔枝湾涌水道、文塔与小船")).toBeVisible();
   });
 
   it("shows a readable fallback when the local file fails", () => {

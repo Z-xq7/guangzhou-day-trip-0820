@@ -32,6 +32,22 @@ function getNavigationOrigin(stops: ItineraryStop[], destinationId: string) {
 }
 
 const mobileViews: MobileView[] = ["route", "map", "todo", "me"];
+const mobileViewportQuery = "(max-width: 760px)";
+
+function getMobileViewportSnapshot() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(mobileViewportQuery).matches;
+}
+
+function subscribeMobileViewport(onChange: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => undefined;
+  }
+
+  const mediaQuery = window.matchMedia(mobileViewportQuery);
+  mediaQuery.addEventListener("change", onChange);
+  return () => mediaQuery.removeEventListener("change", onChange);
+}
 
 function parseViewHash(hash: string): MobileView | null {
   const value = hash.replace(/^#/, "") as MobileView;
@@ -51,6 +67,11 @@ export function TripPlanner() {
     () => defaultTripState,
   );
   const [selectedId, setSelectedId] = useState("tea");
+  const isMobile = useSyncExternalStore(
+    subscribeMobileViewport,
+    getMobileViewportSnapshot,
+    () => false,
+  );
 
   const activeStops = useMemo(
     () => applyScenario(itineraryStops, tripState.scenario),
@@ -137,8 +158,21 @@ export function TripPlanner() {
 
   return (
     <main>
+      <header className="mobile-top-bar" aria-label="手机行程摘要">
+        <a
+          href="#route"
+          onClick={(event) => {
+            event.preventDefault();
+            setActiveView("route");
+          }}
+        >
+          <span className="mobile-top-bar-seal" aria-hidden="true">粤</span>
+          <span><strong>一日广州</strong><small>2026.08.20 · {tripState.scenario === "normal" ? "正常" : tripState.scenario === "rain" ? "下雨" : "高铁晚点"}</small></span>
+        </a>
+      </header>
       <RouteView
         isActive={tripState.activeView === "route"}
+        isMobile={isMobile}
         scenario={tripState.scenario}
         stops={activeStops}
         selectedStop={selectedStop}
@@ -156,6 +190,7 @@ export function TripPlanner() {
       />
       <MapView
         isActive={tripState.activeView === "map"}
+        isMobile={isMobile}
         stops={activeStops}
         selectedStop={selectedStop}
         nextStop={nextStop}
@@ -169,11 +204,13 @@ export function TripPlanner() {
       />
       <TodoView
         isActive={tripState.activeView === "todo"}
+        isMobile={isMobile}
         completedIds={tripState.bookingIds}
         onToggle={toggleBooking}
       />
       <MyTripView
         isActive={tripState.activeView === "me"}
+        isMobile={isMobile}
         scenario={tripState.scenario}
         completedStops={completedCount}
         totalStops={activeStops.length}

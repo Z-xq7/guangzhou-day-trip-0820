@@ -32,7 +32,8 @@ export function StopPhoto({ photo, title, priority }: StopPhotoProps) {
         onError={() => setFailedSrc(photo.src)}
       />
       <figcaption>
-        <span>真实照片 · {title}</span>
+        <span className="stop-photo-title">真实照片 · {title}</span>
+        <span className="stop-photo-description">{photo.alt}</span>
         <a href={photo.sourceUrl} target="_blank" rel="noreferrer">
           图片来源：{photo.author} · {photo.license}
         </a>

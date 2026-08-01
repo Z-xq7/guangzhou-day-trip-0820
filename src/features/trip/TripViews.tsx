@@ -146,6 +146,7 @@ export function NextStopBar({ nextStop, navigationUrl, onSelect }: NextStopBarPr
 
 export interface RouteViewProps {
   isActive?: boolean;
+  isMobile?: boolean;
   scenario: Scenario;
   stops: ItineraryStop[];
   selectedStop: ItineraryStop;
@@ -160,6 +161,7 @@ export interface RouteViewProps {
 
 export function RouteView({
   isActive = true,
+  isMobile = false,
   scenario,
   stops,
   selectedStop,
@@ -176,7 +178,7 @@ export function RouteView({
       id="route"
       className={`app-view${isActive ? " is-active" : ""}`}
       aria-label="路线规划"
-      aria-hidden={isActive ? undefined : true}
+      aria-hidden={isMobile && !isActive ? true : undefined}
     >
       <header className="site-header">
         <a className="brand" href="#top" aria-label="返回行程顶部">
@@ -265,6 +267,7 @@ export function RouteView({
 
 export interface MapViewProps {
   isActive?: boolean;
+  isMobile?: boolean;
   stops: ItineraryStop[];
   selectedStop: ItineraryStop;
   nextStop: ItineraryStop;
@@ -275,6 +278,7 @@ export interface MapViewProps {
 
 export function MapView({
   isActive = true,
+  isMobile = false,
   stops,
   selectedStop,
   nextStop,
@@ -314,7 +318,7 @@ export function MapView({
       id="map"
       className={`app-view${isActive ? " is-active" : ""}`}
       aria-label="地图与导航"
-      aria-hidden={isActive ? undefined : true}
+      aria-hidden={isMobile && !isActive ? true : undefined}
     >
       <section className="route-section section-shell" aria-labelledby="map-title">
         <div className="section-heading">
@@ -368,17 +372,18 @@ export function MapView({
 
 export interface TodoViewProps {
   isActive?: boolean;
+  isMobile?: boolean;
   completedIds: string[];
   onToggle: (id: string) => void;
 }
 
-export function TodoView({ isActive = true, completedIds, onToggle }: TodoViewProps) {
+export function TodoView({ isActive = true, isMobile = false, completedIds, onToggle }: TodoViewProps) {
   return (
     <section
       id="todo"
       className={`app-view${isActive ? " is-active" : ""}`}
       aria-label="行前待办"
-      aria-hidden={isActive ? undefined : true}
+      aria-hidden={isMobile && !isActive ? true : undefined}
     >
       <section className="prep-grid section-shell" id="checklist" aria-labelledby="checklist-title">
         <div className="checklist-card paper-card">
@@ -403,6 +408,7 @@ export function TodoView({ isActive = true, completedIds, onToggle }: TodoViewPr
 
 export interface MyTripViewProps {
   isActive?: boolean;
+  isMobile?: boolean;
   scenario: Scenario;
   completedStops: number;
   totalStops: number;
@@ -419,6 +425,7 @@ const scenarioLabels: Record<Scenario, string> = {
 
 export function MyTripView({
   isActive = true,
+  isMobile = false,
   scenario,
   completedStops,
   totalStops,
@@ -431,7 +438,7 @@ export function MyTripView({
       id="me"
       className={`app-view${isActive ? " is-active" : ""}`}
       aria-label="我的行程"
-      aria-hidden={isActive ? undefined : true}
+      aria-hidden={isMobile && !isActive ? true : undefined}
     >
       <section className="quick-stats" aria-label="我的行程进度">
         <div><span className="stat-kicker">当前模式</span><strong>{scenarioLabels[scenario]}</strong><small>可随时切换</small></div>
@@ -474,6 +481,7 @@ export function MyTripView({
           ))}
         </div>
         <p className="source-note">车次、船名和精确票价将在官方开放 8 月 20 日班次后才能锁定；页面当前只给安全时间窗。</p>
+        <p className="privacy-note">不登录、不定位、不上传数据</p>
         <button type="button" onClick={onReset}>清除本机记录</button>
       </section>
 
