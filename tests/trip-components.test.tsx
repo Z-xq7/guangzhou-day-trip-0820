@@ -1,19 +1,116 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { itineraryStops } from "../src/data/itinerary";
+import {
+  bookingItems,
+  budgetItems,
+  itineraryStops,
+  sources,
+} from "../src/data/itinerary";
 import {
   BookingChecklist,
   ScenarioSwitcher,
   TripPlanner,
   TripTimeline,
 } from "../src/features/trip/TripPlanner";
-import { applyScenario } from "../src/features/trip/trip-logic";
+import {
+  applyScenario,
+  buildBaiduMapUrl,
+  buildBaiduPlaceUrl,
+  summarizeBudget,
+} from "../src/features/trip/trip-logic";
 import { RouteDiagram } from "../src/features/trip/RouteDiagram";
 import { StopPhoto } from "../src/features/trip/StopPhoto";
+import {
+  MapView,
+  MyTripView,
+  RouteView,
+  TodoView,
+} from "../src/features/trip/TripViews";
 
 afterEach(cleanup);
+
+const viewStops = applyScenario(itineraryStops, "normal");
+const viewSelectedStop = viewStops.find((stop) => stop.id === "chen-clan")!;
+const viewNextStop = viewStops.find((stop) => stop.id === "pantang")!;
+const viewBudget = summarizeBudget(budgetItems);
+
+const routeProps = {
+  scenario: "normal" as const,
+  stops: viewStops,
+  selectedStop: viewSelectedStop,
+  completedIds: ["tea"],
+  completedCount: 1,
+  perPersonBudget: viewBudget.perPerson,
+  onScenarioChange: vi.fn(),
+  onSelectStop: vi.fn(),
+  onToggleStop: vi.fn(),
+  selectedNavigationUrl: buildBaiduMapUrl(
+    itineraryStops[1].placeName,
+    viewSelectedStop.placeName,
+    viewSelectedStop.navigationMode,
+  ),
+};
+
+const mapProps = {
+  stops: viewStops,
+  selectedStop: viewSelectedStop,
+  nextStop: viewNextStop,
+  placeUrl: buildBaiduPlaceUrl(viewSelectedStop.placeName),
+  nextNavigationUrl: buildBaiduMapUrl(
+    viewSelectedStop.placeName,
+    viewNextStop.placeName,
+    viewNextStop.navigationMode,
+  ),
+  onSelectStop: vi.fn(),
+};
+
+const todoProps = {
+  completedIds: [bookingItems[0].id],
+  onToggle: vi.fn(),
+};
+
+const myTripProps = {
+  scenario: "normal" as const,
+  completedStops: 1,
+  totalStops: viewStops.length,
+  completedBookings: 1,
+  budget: viewBudget,
+  onReset: vi.fn(),
+};
+
+describe("TripViews", () => {
+  it("exposes one labeled region for each app function", () => {
+    render(
+      <div>
+        <RouteView {...routeProps} />
+        <MapView {...mapProps} />
+        <TodoView {...todoProps} />
+        <MyTripView {...myTripProps} />
+      </div>,
+    );
+
+    expect(screen.getByRole("region", { name: "路线规划" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "地图与导航" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "行前待办" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "我的行程" })).toBeInTheDocument();
+    expect(screen.getByText(sources[0].title)).toBeInTheDocument();
+  });
+
+  it("opens both Baidu place search and next-leg navigation from the map view", () => {
+    render(<MapView {...mapProps} />);
+
+    expect(screen.getByRole("link", { name: /在百度地图查看地点/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("api.map.baidu.com/place/search"),
+    );
+    expect(screen.getByRole("link", { name: /百度地图去下一站/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("api.map.baidu.com/direction"),
+    );
+  });
+});
 
 describe("TripPlanner", () => {
   it("switches to the rain plan, updates the route, and saves the choice locally", () => {
@@ -36,13 +133,29 @@ describe("TripPlanner", () => {
     window.localStorage.clear();
     render(<TripPlanner />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^09:40地标陈家祠/ }));
+    const routeDiagram = screen.getByRole("region", { name: /游览顺序示意/ });
+    fireEvent.click(within(routeDiagram).getByRole("button", { name: /09:40.*陈家祠/ }));
 
     const navigationUrl = new URL(
       screen.getByRole("link", { name: /在百度地图打开 岭南雕花/ }).getAttribute("href") ?? "",
     );
     expect(navigationUrl.searchParams.get("origin")).toBe("name:广州 广州酒家文昌总店");
     expect(navigationUrl.searchParams.get("destination")).toBe("name:广州 陈家祠");
+  });
+
+  it("keeps a valid non-rail selection after a scenario removes the selected stop", () => {
+    window.localStorage.clear();
+    render(<TripPlanner />);
+
+    const routeDiagram = screen.getByRole("region", { name: /游览顺序示意/ });
+    fireEvent.click(within(routeDiagram).getByRole("button", { name: /11:05.*泮塘/ }));
+    expect(screen.getByRole("link", { name: /在百度地图打开 水乡慢行/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "下雨" }));
+    expect(screen.getByRole("link", { name: /在百度地图打开 一盅两件/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "正常" }));
+    expect(screen.getByRole("link", { name: /在百度地图打开 一盅两件/ })).toBeInTheDocument();
   });
 });
 
@@ -85,14 +198,7 @@ describe("BookingChecklist", () => {
       <BookingChecklist
         completedIds={[]}
         onToggle={onToggle}
-        items={[
-          {
-            id: "train-outbound",
-            title: "去程高铁",
-            status: "8 月 6 日开售",
-            url: "https://www.12306.cn/",
-          },
-        ]}
+        items={[bookingItems[0]]}
       />,
     );
 
