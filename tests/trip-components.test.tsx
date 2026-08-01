@@ -11,6 +11,7 @@ import {
 } from "../src/features/trip/TripPlanner";
 import { applyScenario } from "../src/features/trip/trip-logic";
 import { RouteDiagram } from "../src/features/trip/RouteDiagram";
+import { StopPhoto } from "../src/features/trip/StopPhoto";
 
 afterEach(cleanup);
 
@@ -138,5 +139,57 @@ describe("RouteDiagram", () => {
     render(<RouteDiagram stops={rainyStops} selectedId="tea" onSelect={() => undefined} />);
     expect(screen.queryByRole("button", { name: /泮塘/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /珠江夜游/ })).toBeInTheDocument();
+  });
+});
+
+describe("StopPhoto", () => {
+  const photo = {
+    src: "images/stops/02-chen-clan-academy.webp",
+    alt: "陈家祠屋脊与院落",
+    author: "Verified Commons author",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:Example.jpg",
+    license: "CC BY-SA 4.0",
+  };
+
+  it("renders a local lazy image and visible credit link", () => {
+    render(<StopPhoto photo={photo} title="陈家祠" priority={false} />);
+    const image = screen.getByRole("img", { name: photo.alt });
+    expect(image).toHaveAttribute("src", photo.src);
+    expect(image).toHaveAttribute("loading", "lazy");
+    expect(screen.getByRole("link", { name: /图片来源/ })).toHaveAttribute(
+      "href",
+      photo.sourceUrl,
+    );
+    expect(screen.getByText(/CC BY-SA 4.0/)).toBeInTheDocument();
+  });
+
+  it("shows a readable fallback when the local file fails", () => {
+    render(<StopPhoto photo={photo} title="陈家祠" priority={false} />);
+    fireEvent.error(screen.getByRole("img", { name: photo.alt }));
+    expect(screen.getByRole("img", { name: "陈家祠照片暂不可用" })).toBeInTheDocument();
+  });
+});
+
+describe("photo metadata", () => {
+  it("covers exactly the nine confirmed real-photo slots", () => {
+    const photoStops = itineraryStops.filter((stop) => stop.photo);
+    expect(photoStops.map((stop) => stop.id)).toEqual([
+      "tea",
+      "chen-clan",
+      "pantang",
+      "yongqing",
+      "snacks",
+      "shamian",
+      "beijing-road",
+      "dinner",
+      "cruise",
+    ]);
+    for (const stop of photoStops) {
+      expect(stop.photo?.src).toMatch(/^images\/stops\/\d{2}-[a-z-]+\.webp$/);
+      expect(stop.photo?.alt.length).toBeGreaterThan(6);
+      expect(stop.photo?.author.length).toBeGreaterThan(1);
+      expect(stop.photo?.sourceUrl).toMatch(/^https:\/\/commons\.wikimedia\.org\//);
+      expect(stop.photo?.license).toMatch(/^(Public domain|CC BY(?:-SA)? \d\.\d)$/);
+    }
   });
 });

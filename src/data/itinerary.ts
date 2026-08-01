@@ -48,6 +48,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "广州酒家文昌总店",
     navigationMode: "bus",
     transport: "广州南 → 长寿路 · 地铁约 50 分",
+    photo: {
+      src: "images/stops/01-morning-tea.webp",
+      alt: "蒸笼中的腐皮卷、虾饺与咸蛋黄流沙包",
+      author: "Colin Zhu from Guangzhou, China",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Idimsum_20140504.jpg",
+      license: "CC BY-SA 2.0",
+    },
     showOnMap: true,
     comparisons: [
       { id: "full-tea", badge: "推荐", title: "完整早茶", cost: "¥140–220／两人", time: "65 分钟", description: "体验茶楼文化，覆盖四类经典点心。", recommended: true },
@@ -71,6 +78,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "陈家祠",
     navigationMode: "car",
     transport: "文昌总店 → 陈家祠 · 短程打车约 10 分",
+    photo: {
+      src: "images/stops/02-chen-clan-academy.webp",
+      alt: "陈家祠正门、石狮与彩塑屋脊",
+      author: "钉钉",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Chen_Clan_Ancestral_Hall,_Guangzhou.jpg",
+      license: "CC BY-SA 4.0",
+    },
     showOnMap: true,
   },
   {
@@ -90,6 +104,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "泮塘五约历史文化街区",
     navigationMode: "car",
     transport: "陈家祠 → 泮塘 · 短程打车约 12 分",
+    photo: {
+      src: "images/stops/03-lychee-bay.webp",
+      alt: "旧时荔枝湾涌水道、文塔与小船",
+      author: "Milton Miller",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:%E6%96%87%E5%A1%94%E9%9B%B2%E6%B4%A5%E9%96%A3.jpg",
+      license: "Public domain",
+    },
     showOnMap: true,
   },
   {
@@ -109,6 +130,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "粤剧艺术博物馆",
     navigationMode: "walk",
     transport: "泮塘 → 永庆坊 · 沿荔枝湾步行",
+    photo: {
+      src: "images/stops/04-cantonese-opera.webp",
+      alt: "粤剧艺术博物馆临水园林建筑",
+      author: "PQ77wd",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:An_old_building_for_GDOMA.jpg",
+      license: "CC BY-SA 4.0",
+    },
     showOnMap: true,
   },
   {
@@ -128,6 +156,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "宝华路",
     navigationMode: "walk",
     transport: "永庆坊 → 宝华路 · 步行约 12 分",
+    photo: {
+      src: "images/stops/05-xiguan-snacks.webp",
+      alt: "吴财记餐桌上的云吞面与炸云吞",
+      author: "DragonSamYU",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Deep_Fried_Wonton_and_Wonton_Noodle-_Wu_Cai_Ji_-_20131228.jpg",
+      license: "CC BY-SA 4.0",
+    },
     showOnMap: true,
     comparisons: [
       { id: "snack-crawl", badge: "推荐", title: "三店小吃巡游", cost: "¥70–120／两人", time: "50 分钟", description: "味型更多，也不容易吃撑。", recommended: true },
@@ -151,6 +186,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "沙面岛",
     navigationMode: "walk",
     transport: "宝华路 → 沙面 · 步行约 15 分",
+    photo: {
+      src: "images/stops/06-shamian.webp",
+      alt: "沙面岛绿荫街道与两侧历史建筑",
+      author: "Eduardo M. C.",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Shamian_Island,_Guangzhou_(5928582517).jpg",
+      license: "CC BY 2.0",
+    },
     showOnMap: true,
   },
   {
@@ -170,6 +212,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "北京路步行街",
     navigationMode: "bus",
     transport: "黄沙 → 北京路 · 地铁 6 号线",
+    photo: {
+      src: "images/stops/07-beijing-road.webp",
+      alt: "北京路古道遗址与玻璃展示路面",
+      author: "Windmemories",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:20250222_Site_of_the_Ancient_Street_at_Beijing_Road_01.jpg",
+      license: "CC BY-SA 4.0",
+    },
     showOnMap: true,
   },
   {
@@ -189,6 +238,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "广州大佛寺",
     navigationMode: "walk",
     transport: "北京路内步行",
+    photo: {
+      src: "images/stops/08-big-buddha-temple.webp",
+      alt: "夜色中灯火通明的广州大佛寺正殿",
+      author: "xiquinhosilva @ Flickr",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Front_of_the_Great_Buddha_Temple_in_Guangzhou,_at_night.jpg",
+      license: "CC BY 2.0",
+    },
     showOnMap: true,
     comparisons: [
       { id: "claypot", badge: "推荐", title: "啫啫煲粤菜", cost: "¥160–260／两人", time: "60 分钟", description: "锅气足，和早茶、小吃形成不同体验。", recommended: true },
@@ -212,6 +268,13 @@ export const itineraryStops: ItineraryStop[] = [
     placeName: "天字码头",
     navigationMode: "walk",
     transport: "大佛寺 → 天字码头 · 步行约 18 分",
+    photo: {
+      src: "images/stops/09-pearl-river-night.webp",
+      alt: "珠江夜色中的广州塔、城市天际线与游船",
+      author: "Daniel Lu (User:dllu)",
+      sourceUrl: "https://commons.wikimedia.org/wiki/File:Canton_Tower_at_night_Guangzhou_2024_dllu.jpg",
+      license: "CC BY-SA 4.0",
+    },
     showOnMap: true,
     comparisons: [
       { id: "1900", badge: "推荐", title: "19:00 左右班次", cost: "¥98–150／人", time: "20:15 左右结束", description: "夜景与返程余量最平衡。", recommended: true },

@@ -18,6 +18,7 @@ import {
   updateTripState,
 } from "./trip-storage";
 import { RouteDiagram } from "./RouteDiagram";
+import { StopPhoto } from "./StopPhoto";
 
 interface ScenarioSwitcherProps {
   value: Scenario;
@@ -258,6 +259,13 @@ export function TripPlanner() {
               <span className="category-pill">{selectedStop.category}</span>
               <span>{selectedStop.start}–{selectedStop.end} · {selectedStop.durationMinutes} 分钟</span>
             </div>
+            {selectedStop.photo && (
+              <StopPhoto
+                photo={selectedStop.photo}
+                title={selectedStop.title}
+                priority={selectedStop.id === "tea"}
+              />
+            )}
             <p className="detail-kicker">{selectedStop.shortTitle}</p>
             <h3>{selectedStop.title}</h3>
             <p className="detail-summary">{selectedStop.summary}</p>
