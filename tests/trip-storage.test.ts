@@ -97,7 +97,13 @@ describe("trip state storage", () => {
     const storage = new MemoryStorage();
     storage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ version: 3, scenario: "normal", completedStopIds: [] }),
+      JSON.stringify({
+        version: 3,
+        scenario: "normal",
+        completedStopIds: [],
+        bookingIds: [],
+        activeView: "route",
+      }),
     );
 
     expect(loadTripState(storage)).toEqual(defaultTripState);
@@ -111,6 +117,45 @@ describe("trip state storage", () => {
       completedStopIds: [1],
       bookingIds: [],
       activeView: "route",
+    }));
+
+    expect(loadTripState(storage)).toEqual(defaultTripState);
+  });
+
+  it("rejects records whose booking IDs are not strings", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      scenario: "normal",
+      completedStopIds: [],
+      bookingIds: [1],
+      activeView: "route",
+    }));
+
+    expect(loadTripState(storage)).toEqual(defaultTripState);
+  });
+
+  it("rejects records with an invalid scenario", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      scenario: "sunny",
+      completedStopIds: [],
+      bookingIds: [],
+      activeView: "route",
+    }));
+
+    expect(loadTripState(storage)).toEqual(defaultTripState);
+  });
+
+  it("rejects records with an invalid active mobile view", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      scenario: "normal",
+      completedStopIds: [],
+      bookingIds: [],
+      activeView: "gallery",
     }));
 
     expect(loadTripState(storage)).toEqual(defaultTripState);
