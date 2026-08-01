@@ -110,6 +110,27 @@ describe("TripMap assets", () => {
       "https://z-xq7.github.io/guangzhou-day-trip-0820/assets/leaflet.css",
     );
   });
+
+  it("falls back when map tile requests hang", () => {
+    const scheduleMapLoadFallback = (
+      tripMapModule as typeof tripMapModule & {
+        scheduleMapLoadFallback?: (
+          onTimeout: () => void,
+          schedule: (callback: () => void, delay: number) => number,
+        ) => number;
+      }
+    ).scheduleMapLoadFallback;
+    const onTimeout = vi.fn();
+    const schedule = vi.fn((callback: () => void, delay: number) => {
+      expect(delay).toBe(8_000);
+      callback();
+      return 42;
+    });
+
+    expect(scheduleMapLoadFallback).toBeTypeOf("function");
+    expect(scheduleMapLoadFallback?.(onTimeout, schedule)).toBe(42);
+    expect(onTimeout).toHaveBeenCalledOnce();
+  });
 });
 
 describe("RouteFallback", () => {

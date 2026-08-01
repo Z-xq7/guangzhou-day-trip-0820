@@ -11,6 +11,19 @@ interface RouteFallbackProps {
 
 export const MAP_MARKER_SIZE = 44;
 export const MAP_LOAD_ROOT_MARGIN = "300px";
+export const MAP_LOAD_TIMEOUT_MS = 8_000;
+
+type MapTimeoutScheduler = (
+  callback: () => void,
+  delay: number,
+) => ReturnType<typeof window.setTimeout>;
+
+export function scheduleMapLoadFallback(
+  onTimeout: () => void,
+  schedule: MapTimeoutScheduler = window.setTimeout,
+) {
+  return schedule(onTimeout, MAP_LOAD_TIMEOUT_MS);
+}
 
 let leafletStylesPromise: Promise<void> | null = null;
 
@@ -118,6 +131,7 @@ export function TripMap({ stops, selectedId, onSelect }: TripMapProps) {
     if (!containerRef.current || failed || !shouldLoad) return;
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let mapLoadTimeoutId: ReturnType<typeof window.setTimeout> | undefined;
     let mapInstance: import("leaflet").Map | undefined;
     const markers = new Map<string, import("leaflet").Marker>();
     markerRefs.current = markers;
@@ -148,11 +162,18 @@ export function TripMap({ stops, selectedId, onSelect }: TripMapProps) {
           maxZoom: 19,
         });
         tiles.on("load", () => {
+          if (mapLoadTimeoutId !== undefined) {
+            window.clearTimeout(mapLoadTimeoutId);
+            mapLoadTimeoutId = undefined;
+          }
           if (!cancelled) setLoaded(true);
         });
         tiles.on("tileerror", () => {
           tileErrors += 1;
           if (tileErrors >= 3 && !cancelled) setFailed(true);
+        });
+        mapLoadTimeoutId = scheduleMapLoadFallback(() => {
+          if (!cancelled) setFailed(true);
         });
         tiles.addTo(map);
 
@@ -200,6 +221,7 @@ export function TripMap({ stops, selectedId, onSelect }: TripMapProps) {
     return () => {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
+      if (mapLoadTimeoutId !== undefined) window.clearTimeout(mapLoadTimeoutId);
       markers.clear();
       mapInstance?.remove();
       if (markerRefs.current === markers) markerRefs.current = new Map();
