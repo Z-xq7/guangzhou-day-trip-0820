@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import sharp from "sharp";
 
 const files = [
   "01-morning-tea.webp",
@@ -17,9 +19,19 @@ const files = [
 test("ships nine optimized local WebP photos", async () => {
   for (const file of files) {
     const url = new URL(`../public/images/stops/${file}`, import.meta.url);
-    const [info, bytes] = await Promise.all([stat(url), readFile(url)]);
+    const info = await stat(url);
     assert.ok(info.size > 8_000, `${file} is unexpectedly empty`);
     assert.ok(info.size <= 180 * 1024, `${file} exceeds 180 KiB`);
-    assert.equal(bytes.subarray(8, 12).toString("ascii"), "WEBP", `${file} is not WebP`);
+
+    const image = sharp(fileURLToPath(url), { failOn: "error" });
+    const metadata = await image.metadata();
+    assert.equal(metadata.format, "webp", `${file} is not WebP`);
+    assert.ok(metadata.width && metadata.height, `${file} has invalid dimensions`);
+    assert.ok(Math.max(metadata.width, metadata.height) <= 1600, `${file} exceeds 1600 px`);
+
+    const decoded = await image.clone().raw().toBuffer({ resolveWithObject: true });
+    assert.equal(decoded.info.width, metadata.width, `${file} decoded width changed`);
+    assert.equal(decoded.info.height, metadata.height, `${file} decoded height changed`);
+    assert.ok(decoded.data.length > 0, `${file} did not decode any pixels`);
   }
 });

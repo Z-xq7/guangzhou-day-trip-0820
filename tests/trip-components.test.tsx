@@ -168,6 +168,24 @@ describe("StopPhoto", () => {
     fireEvent.error(screen.getByRole("img", { name: photo.alt }));
     expect(screen.getByRole("img", { name: "陈家祠照片暂不可用" })).toBeInTheDocument();
   });
+
+  it("recovers immediately when a failed photo is replaced", () => {
+    const { rerender } = render(<StopPhoto photo={photo} title="陈家祠" priority={false} />);
+    fireEvent.error(screen.getByRole("img", { name: photo.alt }));
+
+    const nextPhoto = {
+      ...photo,
+      src: "images/stops/03-lychee-bay.webp",
+      alt: "旧时荔枝湾涌水道与文塔",
+    };
+    rerender(<StopPhoto photo={nextPhoto} title="荔枝湾" priority={false} />);
+
+    expect(screen.getByRole("img", { name: nextPhoto.alt })).toHaveAttribute(
+      "src",
+      nextPhoto.src,
+    );
+    expect(screen.queryByText("照片暂不可用")).not.toBeInTheDocument();
+  });
 });
 
 describe("photo metadata", () => {

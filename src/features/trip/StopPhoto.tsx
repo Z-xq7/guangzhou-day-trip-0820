@@ -10,7 +10,8 @@ interface StopPhotoProps {
 }
 
 export function StopPhoto({ photo, title, priority }: StopPhotoProps) {
-  const [failed, setFailed] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = failedSrc === photo.src;
 
   if (failed) {
     return (
@@ -28,7 +29,7 @@ export function StopPhoto({ photo, title, priority }: StopPhotoProps) {
         loading={priority ? "eager" : "lazy"}
         decoding="async"
         fetchPriority={priority ? "high" : "auto"}
-        onError={() => setFailed(true)}
+        onError={() => setFailedSrc(photo.src)}
       />
       <figcaption>
         <span>真实照片 · {title}</span>
