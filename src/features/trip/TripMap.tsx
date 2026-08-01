@@ -14,6 +14,11 @@ export const MAP_LOAD_ROOT_MARGIN = "300px";
 
 let leafletStylesPromise: Promise<void> | null = null;
 
+export function resolveTripAssetUrl(path: string, baseUrl?: string) {
+  const relativePath = path.replace(/^\/+/, "");
+  return new URL(relativePath, baseUrl ?? document.baseURI).href;
+}
+
 function ensureLeafletStyles() {
   if (typeof document === "undefined") return Promise.resolve();
   if (leafletStylesPromise) return leafletStylesPromise;
@@ -38,7 +43,7 @@ function ensureLeafletStyles() {
 
     if (!existing) {
       link.rel = "stylesheet";
-      link.href = "/assets/leaflet.css";
+      link.href = resolveTripAssetUrl("assets/leaflet.css");
       link.dataset.leafletStyles = "";
       document.head.appendChild(link);
     }

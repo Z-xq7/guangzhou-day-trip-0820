@@ -9,11 +9,13 @@ import {
   TripPlanner,
   TripTimeline,
 } from "../src/features/trip/TripPlanner";
-import {
+import * as tripMapModule from "../src/features/trip/TripMap";
+
+const {
   MAP_LOAD_ROOT_MARGIN,
   MAP_MARKER_SIZE,
   RouteFallback,
-} from "../src/features/trip/TripMap";
+} = tripMapModule;
 
 afterEach(cleanup);
 
@@ -87,6 +89,26 @@ describe("BookingChecklist", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: /去程高铁/ }));
     expect(onToggle).toHaveBeenCalledWith("train-outbound");
+  });
+});
+
+describe("TripMap assets", () => {
+  it("resolves deferred assets inside a GitHub Pages repository base", () => {
+    const resolveTripAssetUrl = (
+      tripMapModule as typeof tripMapModule & {
+        resolveTripAssetUrl?: (path: string, baseUrl?: string) => string;
+      }
+    ).resolveTripAssetUrl;
+
+    expect(resolveTripAssetUrl).toBeTypeOf("function");
+    expect(
+      resolveTripAssetUrl?.(
+        "/assets/leaflet.css",
+        "https://z-xq7.github.io/guangzhou-day-trip-0820/",
+      ),
+    ).toBe(
+      "https://z-xq7.github.io/guangzhou-day-trip-0820/assets/leaflet.css",
+    );
   });
 });
 
