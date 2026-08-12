@@ -22,19 +22,24 @@ test("server-renders the Guangzhou day-trip planner", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>广州一日 · 两个人的岭南漫游<\/title>/i);
+  assert.match(html, /<title>一日广州｜路线与 30 个广州精选<\/title>/i);
   assert.match(html, /趁一日，饮啖茶/);
   assert.match(html, /路线规划/);
   assert.match(html, /地图与导航/);
   assert.match(html, /行前待办/);
   assert.match(html, /我的行程/);
-  assert.doesNotMatch(html, /<section id="(?:route|map|todo|me)"[^>]*aria-hidden/);
+  assert.match(html, /发现广州/);
+  assert.match(html, /30 个地方，读懂广州的古今与烟火气/);
+  assert.match(html, /images\/discovery\/01-chen-clan-academy\.webp/);
+  assert.match(html, /guangzhou-overview-map\.webp/);
+  assert.match(html, /og\.png/);
+  assert.doesNotMatch(html, /<section id="(?:route|discover|map|todo|me)"[^>]*aria-hidden/);
   assert.match(html, /路线总览/);
   assert.match(html, /下雨/);
   assert.match(html, /高铁晚点/);
   assert.match(html, /珠江夜游/);
   assert.match(html, /不登录、不定位、不上传数据/);
-  assert.doesNotMatch(html, /OpenStreetMap|Leaflet|高德/);
+  assert.doesNotMatch(html, /Leaflet|高德/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
 
@@ -47,7 +52,8 @@ test("removes starter-only assets and metadata", async () => {
 
   assert.match(page, /TripPlanner/);
   assert.match(layout, /lang="zh-CN"/);
-  assert.match(layout, /广州一日 · 两个人的岭南漫游/);
+  assert.match(layout, /一日广州｜路线与 30 个广州精选/);
+  assert.match(layout, /og\.png/);
   assert.doesNotMatch(page + layout, /codex-preview|_sites-preview|SkeletonPreview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("../app/_sites-preview", templateRoot)));

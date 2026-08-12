@@ -1,6 +1,6 @@
 export type Scenario = "normal" | "rain" | "delay";
 
-export type MobileView = "route" | "map" | "todo" | "me";
+export type MobileView = "route" | "discover" | "map" | "todo" | "me";
 
 export interface StopPhoto {
   src: string;
@@ -88,9 +88,10 @@ export interface SourceInfo {
 }
 
 export interface TripState {
-  version: 2;
+  version: 3;
   scenario: Scenario;
   completedStopIds: string[];
   bookingIds: string[];
+  wishlistPlaceIds: string[];
   activeView: MobileView;
 }

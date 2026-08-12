@@ -1,14 +1,17 @@
-import type { Scenario, TripState } from "../../data/types";
+import { discoveryPlaces } from "../../data/discovery";
+import type { MobileView, Scenario, TripState } from "../../data/types";
 
-export const STORAGE_KEY = "guangzhou-day-trip:v2";
+export const STORAGE_KEY = "guangzhou-day-trip:v3";
+export const V2_STORAGE_KEY = "guangzhou-day-trip:v2";
 export const LEGACY_STORAGE_KEY = "guangzhou-day-trip:v1";
 export const TRIP_STATE_CHANGE_EVENT = "guangzhou-day-trip:state-change";
 
 export const defaultTripState: TripState = {
-  version: 2,
+  version: 3,
   scenario: "normal",
   completedStopIds: [],
   bookingIds: [],
+  wishlistPlaceIds: [],
   activeView: "route",
 };
 
@@ -25,6 +28,13 @@ interface LegacyTripState {
   bookingIds: string[];
 }
 
+interface V2TripState extends Omit<LegacyTripState, "version"> {
+  version: 2;
+  activeView: MobileView;
+}
+
+const knownDiscoveryIds = new Set(discoveryPlaces.map((place) => place.id));
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
@@ -39,14 +49,35 @@ function hasTripProgress(value: unknown): value is Omit<LegacyTripState, "versio
   );
 }
 
-function isV2TripState(value: unknown): value is TripState {
+function isMobileView(value: unknown): value is MobileView {
+  return (
+    typeof value === "string" &&
+    ["route", "discover", "map", "todo", "me"].includes(value)
+  );
+}
+
+function isV3TripState(value: unknown): value is TripState {
   if (!hasTripProgress(value)) return false;
   const candidate = value as Partial<TripState>;
-  return candidate.version === 2 && ["route", "map", "todo", "me"].includes(candidate.activeView ?? "");
+  return (
+    candidate.version === 3 &&
+    isMobileView(candidate.activeView) &&
+    isStringArray(candidate.wishlistPlaceIds)
+  );
+}
+
+function isV2TripState(value: unknown): value is V2TripState {
+  if (!hasTripProgress(value)) return false;
+  const candidate = value as Partial<V2TripState>;
+  return candidate.version === 2 && isMobileView(candidate.activeView);
 }
 
 function isV1TripState(value: unknown): value is LegacyTripState {
   return hasTripProgress(value) && (value as Partial<LegacyTripState>).version === 1;
+}
+
+function normalizeWishlist(ids: string[]) {
+  return [...new Set(ids.filter((id) => knownDiscoveryIds.has(id)))];
 }
 
 export function saveTripState(storage: StorageLike, state: TripState) {
@@ -67,23 +98,36 @@ function parseStoredState(raw: string | null): unknown {
   }
 }
 
-export function loadTripState(storage: StorageLike): TripState {
+function safeRead(storage: StorageLike, key: string) {
   try {
-    const current = parseStoredState(storage.getItem(STORAGE_KEY));
-    if (isV2TripState(current)) return current;
-
-    const legacy = parseStoredState(storage.getItem(LEGACY_STORAGE_KEY));
-    if (isV1TripState(legacy)) return { ...legacy, version: 2, activeView: "route" };
-
-    return defaultTripState;
+    return parseStoredState(storage.getItem(key));
   } catch {
-    return defaultTripState;
+    return undefined;
   }
+}
+
+export function loadTripState(storage: StorageLike): TripState {
+  const current = safeRead(storage, STORAGE_KEY);
+  if (isV3TripState(current)) {
+    return { ...current, wishlistPlaceIds: normalizeWishlist(current.wishlistPlaceIds) };
+  }
+
+  const version2 = safeRead(storage, V2_STORAGE_KEY);
+  if (isV2TripState(version2)) {
+    return { ...version2, version: 3, wishlistPlaceIds: [] };
+  }
+
+  const legacy = safeRead(storage, LEGACY_STORAGE_KEY);
+  if (isV1TripState(legacy)) {
+    return { ...legacy, version: 3, activeView: "route", wishlistPlaceIds: [] };
+  }
+
+  return defaultTripState;
 }
 
 export function clearTripState(storage: StorageLike) {
   let cleared = true;
-  for (const key of [STORAGE_KEY, LEGACY_STORAGE_KEY]) {
+  for (const key of [STORAGE_KEY, V2_STORAGE_KEY, LEGACY_STORAGE_KEY]) {
     try {
       storage.removeItem(key);
     } catch {

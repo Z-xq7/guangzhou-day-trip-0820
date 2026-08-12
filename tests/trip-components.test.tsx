@@ -33,6 +33,7 @@ import {
   LEGACY_STORAGE_KEY,
   STORAGE_KEY,
   TRIP_STATE_CHANGE_EVENT,
+  V2_STORAGE_KEY,
 } from "../src/features/trip/trip-storage";
 
 const initialClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
@@ -162,6 +163,7 @@ const myTripProps = {
   totalStops: viewStops.length,
   completedBookings: 1,
   budget: viewBudget,
+  wishlistCount: 2,
   onReset: vi.fn(),
 };
 
@@ -188,6 +190,7 @@ describe("TripViews", () => {
 
     const headerNav = within(screen.getByRole("navigation", { name: "页面导航" }));
     expect(headerNav.getByRole("link", { name: "路线" })).toHaveAttribute("href", "#route");
+    expect(headerNav.getByRole("link", { name: "发现" })).toHaveAttribute("href", "#discover");
     expect(headerNav.getByRole("link", { name: "地图" })).toHaveAttribute("href", "#map");
     expect(headerNav.getByRole("link", { name: "预约" })).toHaveAttribute("href", "#todo");
     expect(headerNav.getByRole("link", { name: "预算" })).toHaveAttribute("href", "#me");
@@ -230,6 +233,16 @@ describe("TripViews", () => {
       expect(licenseLink).toHaveAttribute("rel", "noreferrer");
       expect(within(creditCard).getByText(stop.photo!.modifications)).toBeVisible();
     });
+  });
+
+  it("summarizes discovery candidates and opens the discovery view", () => {
+    const onNavigateView = vi.fn();
+    render(<MyTripView {...myTripProps} onNavigateView={onNavigateView} />);
+
+    expect(screen.getByLabelText("我的行程进度")).toHaveTextContent("想去地点");
+    expect(screen.getByLabelText("我的行程进度")).toHaveTextContent("2 个");
+    fireEvent.click(screen.getByRole("button", { name: "查看 2 个想去地点" }));
+    expect(onNavigateView).toHaveBeenCalledWith("discover");
   });
 
   it("confirms a copied place and uses the exact Guangzhou search text", async () => {
@@ -349,16 +362,22 @@ describe("TripViews", () => {
 });
 
 describe("MobileAppShell", () => {
-  it("switches all four functions and exposes the active page", () => {
+  it("switches all five functions and exposes the active page", () => {
     const onChange = vi.fn();
     render(<MobileAppShell activeView="route" onChange={onChange} />);
 
     const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
-    expect(mobileNav.getAllByRole("link")).toHaveLength(4);
+    expect(mobileNav.getAllByRole("link")).toHaveLength(5);
     expect(mobileNav.getByRole("link", { name: "路线" })).toHaveAttribute(
       "aria-current",
       "page",
     );
+    expect(mobileNav.getByRole("link", { name: "发现" })).toHaveAttribute(
+      "href",
+      "#discover",
+    );
+    fireEvent.click(mobileNav.getByRole("link", { name: "发现" }));
+    expect(onChange).toHaveBeenCalledWith("discover");
     fireEvent.click(mobileNav.getByRole("link", { name: "地图" }));
     expect(onChange).toHaveBeenCalledWith("map");
     fireEvent.click(mobileNav.getByRole("link", { name: "待办" }));
@@ -369,6 +388,86 @@ describe("MobileAppShell", () => {
 });
 
 describe("TripPlanner", () => {
+  it("restores a direct discovery detail with its filters and mobile owner", () => {
+    installMatchMedia(true);
+    window.history.replaceState(
+      null,
+      "",
+      "#discover/chen-clan-academy?q=%E5%B2%AD%E5%8D%97",
+    );
+
+    render(<TripPlanner />);
+
+    const discovery = screen.getByRole("region", { name: "发现广州" });
+    expect(discovery).toHaveClass("is-active");
+    expect(within(discovery).getByRole("searchbox", { name: "搜索地点、美食或主题" }))
+      .toHaveValue("岭南");
+    expect(within(discovery).getByRole("button", { name: "收起陈家祠详情" })).toBeVisible();
+    const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+    expect(mobileNav.getByRole("link", { name: "发现" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("banner", { name: "手机行程摘要" }))
+      .toHaveTextContent("发现广州 · 30 个精选");
+    expect(screen.queryByLabelText("下一站快捷操作")).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])(
+    "scrolls a newly selected function to its own start after layout commits (mobile=%s)",
+    async (mobile) => {
+    installMatchMedia(mobile);
+    const scrollIntoView = vi.fn();
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    window.history.replaceState(null, "", "#route");
+    render(<TripPlanner />);
+
+    const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+    fireEvent.click(mobileNav.getByRole("link", { name: "发现" }));
+
+    await waitFor(() => {
+      expect(requestAnimationFrame).toHaveBeenCalled();
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    });
+    vi.unstubAllGlobals();
+    },
+  );
+
+  it("owns discovery selection history and restores it on popstate", () => {
+    installMatchMedia(true);
+    window.history.replaceState(null, "", "#discover/chen-clan-academy");
+    render(<TripPlanner />);
+
+    fireEvent.click(screen.getByRole("button", { name: "查看沙面详情" }));
+    expect(window.location.hash).toBe("#discover/shamian");
+    expect(screen.getByRole("button", { name: "收起沙面详情" })).toBeVisible();
+
+    window.history.pushState(null, "", "#discover/chen-clan-academy");
+    fireEvent.popState(window);
+    expect(screen.getByRole("button", { name: "收起陈家祠详情" })).toBeVisible();
+  });
+
+  it("restores discovery state after an unmount and refresh-equivalent remount", () => {
+    installMatchMedia(true);
+    window.history.replaceState(null, "", "#discover/nanxin-dessert?q=%E5%8F%8C%E7%9A%AE%E5%A5%B6");
+    const first = render(<TripPlanner />);
+    first.unmount();
+
+    render(<TripPlanner />);
+
+    expect(screen.getByRole("searchbox", { name: "搜索地点、美食或主题" }))
+      .toHaveValue("双皮奶");
+    expect(screen.getByRole("button", { name: "收起南信牛奶甜品专家详情" })).toBeVisible();
+  });
+
   it("switches to the rain plan, updates the route, and saves the choice locally", () => {
     window.localStorage.clear();
     render(<TripPlanner />);
@@ -378,9 +477,11 @@ describe("TripPlanner", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "下雨" }));
 
-    expect(screen.queryByRole("button", { name: /泮塘五约/ })).not.toBeInTheDocument();
+    const routeView = screen.getByRole("region", { name: "路线规划" });
+    expect(within(routeView).queryByRole("button", { name: /泮塘五约/ }))
+      .not.toBeInTheDocument();
     expect(screen.getByText(/雨天把时间留在室内/)).toBeInTheDocument();
-    expect(JSON.parse(window.localStorage.getItem("guangzhou-day-trip:v2") ?? "{}").scenario).toBe(
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}").scenario).toBe(
       "rain",
     );
   });
@@ -556,11 +657,12 @@ describe("TripPlanner", () => {
 
   it("lets a valid initial hash override the persisted mobile view", () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: [],
       bookingIds: [],
       activeView: "map",
+      wishlistPlaceIds: [],
     }));
     window.history.replaceState(null, "", "#todo");
 
@@ -587,11 +689,12 @@ describe("TripPlanner", () => {
         value: scrollIntoView,
       });
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 2,
+        version: 3,
         scenario: "normal",
         completedStopIds: [],
         bookingIds: [],
         activeView: owner === "route" ? "map" : "me",
+        wishlistPlaceIds: [],
       }));
       window.history.replaceState(null, "", hash);
 
@@ -649,11 +752,12 @@ describe("TripPlanner", () => {
     ["invalid", "#unknown"],
   ])("replaces a %s initial hash with the persisted mobile view", (_kind, hash) => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: [],
       bookingIds: [],
       activeView: "map",
+      wishlistPlaceIds: [],
     }));
     window.history.replaceState(null, "", hash);
     const replaceState = vi.spyOn(window.history, "replaceState");
@@ -670,7 +774,7 @@ describe("TripPlanner", () => {
     render(<TripPlanner />);
 
     expect(document.getElementById("map")).toHaveClass("is-active");
-    for (const id of ["route", "map", "todo", "me"]) {
+    for (const id of ["route", "discover", "map", "todo", "me"]) {
       expect(document.getElementById(id)).not.toHaveAttribute("aria-hidden");
     }
     expect(window.matchMedia).toHaveBeenCalledWith("(max-width: 760px)");
@@ -683,12 +787,12 @@ describe("TripPlanner", () => {
     const { unmount } = render(<TripPlanner />);
 
     expect(document.getElementById("map")).not.toHaveAttribute("aria-hidden");
-    for (const id of ["route", "todo", "me"]) {
+    for (const id of ["route", "discover", "todo", "me"]) {
       expect(document.getElementById(id)).toHaveAttribute("aria-hidden", "true");
     }
 
     media.setMatches(false);
-    for (const id of ["route", "map", "todo", "me"]) {
+    for (const id of ["route", "discover", "map", "todo", "me"]) {
       expect(document.getElementById(id)).not.toHaveAttribute("aria-hidden");
     }
 
@@ -713,11 +817,12 @@ describe("TripPlanner", () => {
   it("replaces the mobile marketing hero with one operational first-screen panel", () => {
     installMatchMedia(true);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: ["tea"],
       bookingIds: [],
       activeView: "route",
+      wishlistPlaceIds: [],
     }));
     render(<TripPlanner />);
 
@@ -755,11 +860,12 @@ describe("TripPlanner", () => {
 
   it("shows Todo progress from unique known booking IDs only", () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: [],
       bookingIds: ["train-outbound", "stale-booking", "train-outbound"],
       activeView: "todo",
+      wishlistPlaceIds: [],
     }));
     render(<TripPlanner />);
 
@@ -792,7 +898,7 @@ describe("TripPlanner", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "清除本机记录" }));
     expect(screen.getByRole("tab", { name: "正常" })).toHaveAttribute("aria-selected", "true");
-    expect(removeItem).toHaveBeenCalledTimes(2);
+    expect(removeItem).toHaveBeenCalledTimes(3);
     expect(getItem).toHaveBeenCalled();
   });
 
@@ -836,13 +942,15 @@ describe("TripPlanner", () => {
 
   it("requires confirmation before clearing local trip records", () => {
     const savedState = JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "rain",
       completedStopIds: ["tea"],
       bookingIds: ["weather"],
       activeView: "me",
+      wishlistPlaceIds: ["shamian"],
     });
     window.localStorage.setItem(STORAGE_KEY, savedState);
+    window.localStorage.setItem(V2_STORAGE_KEY, "version-two");
     window.localStorage.setItem(LEGACY_STORAGE_KEY, "legacy");
     window.history.replaceState(null, "", "#me");
     vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
@@ -850,11 +958,13 @@ describe("TripPlanner", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "清除本机记录" }));
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe(savedState);
+    expect(window.localStorage.getItem(V2_STORAGE_KEY)).toBe("version-two");
     expect(window.localStorage.getItem(LEGACY_STORAGE_KEY)).toBe("legacy");
     expect(window.location.hash).toBe("#me");
 
     fireEvent.click(screen.getByRole("button", { name: "清除本机记录" }));
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(V2_STORAGE_KEY)).toBeNull();
     expect(window.localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
     expect(window.location.hash).toBe("#route");
     const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));

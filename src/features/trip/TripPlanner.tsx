@@ -3,6 +3,14 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { bookingItems, budgetItems, itineraryStops } from "../../data/itinerary";
 import type { ItineraryStop, MobileView, Scenario } from "../../data/types";
+import { DiscoveryView } from "../discovery/DiscoveryView";
+import {
+  defaultDiscoveryFilters,
+  encodeDiscoveryHash,
+  parseDiscoveryHash,
+} from "../discovery/discovery-logic";
+import type { DiscoveryFilters } from "../discovery/discovery-types";
+import { clearWishlist, toggleWishlistPlace } from "../discovery/discovery-storage";
 import {
   applyScenario,
   applyScenarioBudget,
@@ -42,7 +50,7 @@ const hashOwnership: Record<string, MobileView> = {
   me: "me",
   budget: "me",
 };
-const mobileViews = new Set<MobileView>(["route", "map", "todo", "me"]);
+const mobileViews = new Set<MobileView>(["route", "discover", "map", "todo", "me"]);
 const mobileViewportQuery = "(max-width: 760px)";
 
 function getMobileViewportSnapshot() {
@@ -61,6 +69,9 @@ function subscribeMobileViewport(onChange: () => void) {
 }
 
 function parseOwnedHash(hash: string) {
+  if (parseDiscoveryHash(hash)) {
+    return { owner: "discover" as const, targetId: "discover" };
+  }
   let targetId: string;
   try {
     targetId = decodeURIComponent(hash.replace(/^#/, ""));
@@ -69,6 +80,16 @@ function parseOwnedHash(hash: string) {
   }
   const owner = hashOwnership[targetId];
   return owner ? { owner, targetId } : null;
+}
+
+function getInitialDiscoveryState() {
+  if (typeof window === "undefined") {
+    return { placeId: null, filters: defaultDiscoveryFilters };
+  }
+  return parseDiscoveryHash(window.location.hash) ?? {
+    placeId: null,
+    filters: defaultDiscoveryFilters,
+  };
 }
 
 function focusInternalHashTarget(targetId: string) {
@@ -92,6 +113,15 @@ function updateActiveView(view: MobileView) {
   updateTripState((current) => ({ ...current, activeView: view }));
 }
 
+function revealViewStart(view: MobileView) {
+  const reveal = () => document.getElementById(view)?.scrollIntoView?.({ block: "start" });
+  if (typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(reveal);
+  } else {
+    window.setTimeout(reveal, 0);
+  }
+}
+
 export function TripPlanner() {
   const tripState = useSyncExternalStore(
     subscribeTripState,
@@ -99,6 +129,7 @@ export function TripPlanner() {
     () => defaultTripState,
   );
   const [selectedId, setSelectedId] = useState("tea");
+  const [discoveryState, setDiscoveryState] = useState(getInitialDiscoveryState);
   const isMobile = useSyncExternalStore(
     subscribeMobileViewport,
     getMobileViewportSnapshot,
@@ -137,6 +168,12 @@ export function TripPlanner() {
 
   useEffect(() => {
     const syncViewFromHistory = () => {
+      const parsedDiscovery = parseDiscoveryHash(window.location.hash);
+      if (parsedDiscovery) {
+        setDiscoveryState(parsedDiscovery);
+        updateActiveView("discover");
+        return;
+      }
       const ownedHash = parseOwnedHash(window.location.hash);
       if (!ownedHash) return;
       updateActiveView(ownedHash.owner);
@@ -201,13 +238,37 @@ export function TripPlanner() {
 
   const setActiveView = useCallback((view: MobileView) => {
     updateActiveView(view);
-    if (window.location.hash !== `#${view}`) {
-      window.history.pushState(null, "", `#${view}`);
+    const nextHash = view === "discover"
+      ? encodeDiscoveryHash(discoveryState)
+      : `#${view}`;
+    if (window.location.hash !== nextHash) {
+      window.history.pushState(null, "", nextHash);
     }
-  }, []);
+    revealViewStart(view);
+  }, [discoveryState]);
+
+  const setDiscoveryFilters = useCallback((filters: DiscoveryFilters) => {
+    const nextState = { ...discoveryState, filters };
+    setDiscoveryState(nextState);
+    updateActiveView("discover");
+    const nextHash = encodeDiscoveryHash(nextState);
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, "", nextHash);
+    }
+  }, [discoveryState]);
+
+  const setSelectedDiscoveryPlace = useCallback((placeId: string | null) => {
+    const nextState = { ...discoveryState, placeId };
+    setDiscoveryState(nextState);
+    updateActiveView("discover");
+    const nextHash = encodeDiscoveryHash(nextState);
+    if (window.location.hash !== nextHash) {
+      window.history.pushState(null, "", nextHash);
+    }
+  }, [discoveryState]);
 
   const resetLocalTrip = useCallback(() => {
-    if (!window.confirm("确定清除当前设备上的模式、打卡、待办和最近功能吗？")) return;
+    if (!window.confirm("确定清除当前设备上的模式、打卡、待办、想去和最近功能吗？")) return;
     resetTripState();
     window.history.replaceState(null, "", "#route");
   }, []);
@@ -223,7 +284,10 @@ export function TripPlanner() {
           }}
         >
           <span className="mobile-top-bar-seal" aria-hidden="true">粤</span>
-          <span><strong>一日广州</strong><small>2026.08.20 · {tripState.scenario === "normal" ? "正常" : tripState.scenario === "rain" ? "下雨" : "高铁晚点"}</small></span>
+          <span>
+            <strong>{tripState.activeView === "discover" ? "发现广州 · 30 个精选" : "一日广州"}</strong>
+            <small>{tripState.activeView === "discover" ? "景点、美食与位置总览" : `2026.08.20 · ${tripState.scenario === "normal" ? "正常" : tripState.scenario === "rain" ? "下雨" : "高铁晚点"}`}</small>
+          </span>
         </a>
       </header>
       <RouteView
@@ -246,6 +310,17 @@ export function TripPlanner() {
           progressNextStop.placeName,
           progressNextStop.navigationMode,
         )}
+      />
+      <DiscoveryView
+        isActive={tripState.activeView === "discover"}
+        isMobile={isMobile}
+        filters={discoveryState.filters}
+        selectedPlaceId={discoveryState.placeId}
+        wishlistIds={tripState.wishlistPlaceIds}
+        onFiltersChange={setDiscoveryFilters}
+        onSelectPlace={setSelectedDiscoveryPlace}
+        onToggleWish={toggleWishlistPlace}
+        onClearWishlist={clearWishlist}
       />
       <MapView
         isActive={tripState.activeView === "map"}
@@ -277,13 +352,14 @@ export function TripPlanner() {
         completedStops={completedCount}
         totalStops={activeStops.length}
         completedBookings={completedBookings}
+        wishlistCount={tripState.wishlistPlaceIds.length}
         budget={budget}
         budgetItems={activeBudgetItems}
         onNavigateView={setActiveView}
         onReset={resetLocalTrip}
       />
 
-      {!isMobile || tripState.activeView !== "route" ? (
+      {(!isMobile || tripState.activeView !== "route") && tripState.activeView !== "discover" ? (
         <NextStopBar
           nextStop={progressNextStop}
           navigationUrl={buildBaiduMapUrl(
