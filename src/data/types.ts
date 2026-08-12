@@ -88,9 +88,10 @@ export interface SourceInfo {
 }
 
 export interface TripState {
-  version: 2;
+  version: 3;
   scenario: Scenario;
   completedStopIds: string[];
   bookingIds: string[];
+  wishlistPlaceIds: string[];
   activeView: MobileView;
 }

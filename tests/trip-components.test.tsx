@@ -33,6 +33,7 @@ import {
   LEGACY_STORAGE_KEY,
   STORAGE_KEY,
   TRIP_STATE_CHANGE_EVENT,
+  V2_STORAGE_KEY,
 } from "../src/features/trip/trip-storage";
 
 const initialClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
@@ -380,7 +381,7 @@ describe("TripPlanner", () => {
 
     expect(screen.queryByRole("button", { name: /泮塘五约/ })).not.toBeInTheDocument();
     expect(screen.getByText(/雨天把时间留在室内/)).toBeInTheDocument();
-    expect(JSON.parse(window.localStorage.getItem("guangzhou-day-trip:v2") ?? "{}").scenario).toBe(
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}").scenario).toBe(
       "rain",
     );
   });
@@ -556,11 +557,12 @@ describe("TripPlanner", () => {
 
   it("lets a valid initial hash override the persisted mobile view", () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: [],
       bookingIds: [],
       activeView: "map",
+      wishlistPlaceIds: [],
     }));
     window.history.replaceState(null, "", "#todo");
 
@@ -587,11 +589,12 @@ describe("TripPlanner", () => {
         value: scrollIntoView,
       });
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 2,
+        version: 3,
         scenario: "normal",
         completedStopIds: [],
         bookingIds: [],
         activeView: owner === "route" ? "map" : "me",
+        wishlistPlaceIds: [],
       }));
       window.history.replaceState(null, "", hash);
 
@@ -649,11 +652,12 @@ describe("TripPlanner", () => {
     ["invalid", "#unknown"],
   ])("replaces a %s initial hash with the persisted mobile view", (_kind, hash) => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: [],
       bookingIds: [],
       activeView: "map",
+      wishlistPlaceIds: [],
     }));
     window.history.replaceState(null, "", hash);
     const replaceState = vi.spyOn(window.history, "replaceState");
@@ -713,11 +717,12 @@ describe("TripPlanner", () => {
   it("replaces the mobile marketing hero with one operational first-screen panel", () => {
     installMatchMedia(true);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: ["tea"],
       bookingIds: [],
       activeView: "route",
+      wishlistPlaceIds: [],
     }));
     render(<TripPlanner />);
 
@@ -755,11 +760,12 @@ describe("TripPlanner", () => {
 
   it("shows Todo progress from unique known booking IDs only", () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "normal",
       completedStopIds: [],
       bookingIds: ["train-outbound", "stale-booking", "train-outbound"],
       activeView: "todo",
+      wishlistPlaceIds: [],
     }));
     render(<TripPlanner />);
 
@@ -792,7 +798,7 @@ describe("TripPlanner", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "清除本机记录" }));
     expect(screen.getByRole("tab", { name: "正常" })).toHaveAttribute("aria-selected", "true");
-    expect(removeItem).toHaveBeenCalledTimes(2);
+    expect(removeItem).toHaveBeenCalledTimes(3);
     expect(getItem).toHaveBeenCalled();
   });
 
@@ -836,13 +842,15 @@ describe("TripPlanner", () => {
 
   it("requires confirmation before clearing local trip records", () => {
     const savedState = JSON.stringify({
-      version: 2,
+      version: 3,
       scenario: "rain",
       completedStopIds: ["tea"],
       bookingIds: ["weather"],
       activeView: "me",
+      wishlistPlaceIds: ["shamian"],
     });
     window.localStorage.setItem(STORAGE_KEY, savedState);
+    window.localStorage.setItem(V2_STORAGE_KEY, "version-two");
     window.localStorage.setItem(LEGACY_STORAGE_KEY, "legacy");
     window.history.replaceState(null, "", "#me");
     vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
@@ -850,11 +858,13 @@ describe("TripPlanner", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "清除本机记录" }));
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe(savedState);
+    expect(window.localStorage.getItem(V2_STORAGE_KEY)).toBe("version-two");
     expect(window.localStorage.getItem(LEGACY_STORAGE_KEY)).toBe("legacy");
     expect(window.location.hash).toBe("#me");
 
     fireEvent.click(screen.getByRole("button", { name: "清除本机记录" }));
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(V2_STORAGE_KEY)).toBeNull();
     expect(window.localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
     expect(window.location.hash).toBe("#route");
     const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
