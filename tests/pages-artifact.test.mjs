@@ -16,11 +16,17 @@ const photoFiles = [
 
 const repositoryBase = "/guangzhou-day-trip-0820/";
 const distRoot = new URL("../dist-pages/", import.meta.url);
+const discoveryPhotoFiles = Array.from(
+  { length: 30 },
+  (_, index) => `${String(index + 1).padStart(2, "0")}-`,
+);
 
 test("builds a repository-scoped static trip planner", async () => {
   const html = await readFile(new URL("index.html", distRoot), "utf8");
   assert.match(html, /<html lang="zh-CN">/i);
-  assert.match(html, /<title>广州一日 · 两个人的岭南漫游<\/title>/i);
+  assert.match(html, /<title>一日广州｜路线与 30 个广州精选<\/title>/i);
+  assert.match(html, /og:image/);
+  assert.match(html, /https:\/\/z-xq7\.github\.io\/guangzhou-day-trip-0820\/og\.png/);
 
   const entryUrls = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
     .map((match) => match[1])
@@ -41,9 +47,21 @@ test("builds a repository-scoped static trip planner", async () => {
 
   assert.doesNotMatch(scripts.join("\n"), /tile\.openstreetmap\.org|leaflet/i);
   assert.match(scripts.join("\n"), /images\/stops\//);
+  assert.match(scripts.join("\n"), /images\/discovery\//);
+  assert.match(scripts.join("\n"), /guangzhou-overview-map\.webp/);
   assert.doesNotMatch(scripts.join("\n"), /upload\.wikimedia\.org/i);
   for (const file of photoFiles) {
     await access(new URL(`images/stops/${file}`, distRoot));
   }
+  const discoveryDirectory = new URL("images/discovery/", distRoot);
+  const discoveryCredits = JSON.parse(await readFile(new URL("credits.json", discoveryDirectory), "utf8"));
+  assert.equal(discoveryCredits.length, 30);
+  for (const prefix of discoveryPhotoFiles) {
+    const credit = discoveryCredits.find((item) => item.file.startsWith(prefix));
+    assert.ok(credit, `missing discovery photo ${prefix}`);
+    await access(new URL(credit.file, discoveryDirectory));
+  }
+  await access(new URL("guangzhou-overview-map.webp", discoveryDirectory));
+  await access(new URL("og.png", distRoot));
   await assert.rejects(access(new URL("assets/leaflet.css", distRoot)));
 });
