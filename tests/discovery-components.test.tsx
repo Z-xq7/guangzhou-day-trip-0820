@@ -283,6 +283,25 @@ describe("DiscoveryView", () => {
     vi.unstubAllGlobals();
   });
 
+  it("disables smooth map-to-card motion when the user prefers reduced motion", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    render(<DiscoveryHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "auto" });
+    vi.unstubAllGlobals();
+  });
+
   it("reveals a map-selected card even when the current filters exclude it", () => {
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       callback(0);

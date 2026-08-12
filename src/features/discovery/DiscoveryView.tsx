@@ -62,9 +62,15 @@ function toggleValue<T extends string>(values: T[], value: T) {
 }
 
 function revealElement(id: string) {
+  const prefersReducedMotion = typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   requestAnimationFrame(() => {
     const element = document.getElementById(id);
-    element?.scrollIntoView({ block: "center", behavior: "smooth" });
+    element?.scrollIntoView({
+      block: "center",
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
     element?.focus({ preventScroll: true });
   });
 }
