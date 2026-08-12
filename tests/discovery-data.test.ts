@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import photoCredits from "../public/images/discovery/credits.json";
 import { discoveryPlaces, featuredDiscoveryIds } from "../src/data/discovery";
 import {
   calculateEditorialScore,
@@ -31,5 +32,23 @@ describe("discovery data", () => {
     expect(
       featuredDiscoveryIds.every((id) => discoveryPlaces.some((place) => place.id === id)),
     ).toBe(true);
+  });
+
+  it("keeps runtime photo attribution identical to the downloaded asset manifest", () => {
+    expect(discoveryPlaces.map((place) => ({
+      file: place.photo.src.split("/").at(-1),
+      author: place.photo.author,
+      sourceUrl: place.photo.sourceUrl,
+      license: place.photo.license,
+      licenseUrl: place.photo.licenseUrl,
+      modifications: place.photo.modifications,
+    }))).toEqual(photoCredits.map((credit) => ({
+      file: credit.file,
+      author: credit.author,
+      sourceUrl: credit.sourceUrl,
+      license: credit.license,
+      licenseUrl: credit.licenseUrl,
+      modifications: credit.modifications,
+    })));
   });
 });

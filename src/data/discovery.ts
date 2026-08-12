@@ -5,7 +5,7 @@ import type {
 } from "../features/discovery/discovery-types";
 
 const VERIFIED_AT = "2026-08-12";
-const MODIFICATIONS = "已裁切为 3:2、缩放并转换为 WebP";
+const MODIFICATIONS = "从原图裁切为 3:2、缩放并转换为 WebP";
 
 const sources = {
   topTen: {
