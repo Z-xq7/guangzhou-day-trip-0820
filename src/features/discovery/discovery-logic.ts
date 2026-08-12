@@ -201,7 +201,7 @@ function getArrayParameter<T extends string>(
 ) {
   const value = search.get(key);
   if (!value) return [] as T[];
-  return value.split(",").filter((item): item is T => allowed.has(item));
+  return value.split(",").filter((item): item is T => allowed.has(item as T));
 }
 
 export interface DiscoveryHashState {
