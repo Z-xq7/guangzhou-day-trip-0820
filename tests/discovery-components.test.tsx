@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { discoveryPlaces } from "../src/data/discovery";
 import { DiscoveryCard } from "../src/features/discovery/DiscoveryCard";
+import { DiscoveryMap } from "../src/features/discovery/DiscoveryMap";
 import { DiscoveryPhoto } from "../src/features/discovery/DiscoveryPhoto";
+import { DiscoveryView } from "../src/features/discovery/DiscoveryView";
+import { defaultDiscoveryFilters } from "../src/features/discovery/discovery-logic";
+import type { DiscoveryFilters } from "../src/features/discovery/discovery-types";
 
 afterEach(() => {
   cleanup();
@@ -13,6 +18,34 @@ afterEach(() => {
 
 const chenClan = discoveryPlaces.find((place) => place.id === "chen-clan-academy")!;
 const nanxin = discoveryPlaces.find((place) => place.id === "nanxin-dessert")!;
+
+function DiscoveryHarness({
+  initialFilters = defaultDiscoveryFilters,
+  initialWishlist = [],
+}: {
+  initialFilters?: DiscoveryFilters;
+  initialWishlist?: string[];
+}) {
+  const [filters, setFilters] = useState(initialFilters);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [wishlistIds, setWishlistIds] = useState(initialWishlist);
+
+  return (
+    <DiscoveryView
+      isActive
+      isMobile={false}
+      filters={filters}
+      selectedPlaceId={selectedPlaceId}
+      wishlistIds={wishlistIds}
+      onFiltersChange={setFilters}
+      onSelectPlace={setSelectedPlaceId}
+      onToggleWish={(id) => setWishlistIds((current) => (
+        current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
+      ))}
+      onClearWishlist={() => setWishlistIds([])}
+    />
+  );
+}
 
 function renderCard(overrides: Partial<React.ComponentProps<typeof DiscoveryCard>> = {}) {
   const props: React.ComponentProps<typeof DiscoveryCard> = {
@@ -118,5 +151,118 @@ describe("DiscoveryPhoto", () => {
     expect(screen.queryByRole("img", { name: chenClan.photo.alt })).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "陈家祠景点照片暂不可用" })).toBeVisible();
     expect(screen.getByText("从原图裁切为 3:2、缩放并转换为 WebP")).toBeInTheDocument();
+  });
+});
+
+describe("DiscoveryMap", () => {
+  it("renders one local overview image and 30 matching numbered markers", () => {
+    const onSelect = vi.fn();
+    render(
+      <DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={onSelect} />,
+    );
+
+    expect(screen.getByRole("img", { name: "广州 30 个精选地点位置总览图" }))
+      .toHaveAttribute("src", "images/discovery/guangzhou-overview-map.webp");
+    expect(screen.getAllByRole("button", { name: /^地图位置/ })).toHaveLength(30);
+    expect(screen.getByText("景点 01–21")).toBeVisible();
+    expect(screen.getByText("美食 22–30")).toBeVisible();
+    expect(screen.getByText("位置示意，不替代实时导航")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+    expect(onSelect).toHaveBeenCalledWith("chen-clan-academy");
+  });
+
+  it("marks and exposes the selected location in the fallback list", () => {
+    render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="shamian"
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "地图位置 5：沙面" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("link", { name: "05 沙面 · 荔湾" }))
+      .toHaveAttribute("href", "#discover/shamian");
+  });
+});
+
+describe("DiscoveryView", () => {
+  it("introduces 30 places and renders six featured choices", () => {
+    render(<DiscoveryHarness />);
+
+    const region = screen.getByRole("region", { name: "发现广州" });
+    expect(within(region).getByRole("heading", { name: "30 个地方，读懂广州的古今与烟火气" }))
+      .toBeVisible();
+    expect(within(region).getAllByRole("button", { name: /^精选地点/ })).toHaveLength(6);
+    expect(within(region).getByText("21 个景点 · 9 家粤味")).toBeVisible();
+  });
+
+  it("searches for double-skin milk and clears an empty result", () => {
+    render(<DiscoveryHarness />);
+    const search = screen.getByRole("searchbox", { name: "搜索地点、美食或主题" });
+
+    fireEvent.change(search, { target: { value: "双皮奶" } });
+    expect(screen.getByText("找到 1 个地方")).toBeVisible();
+    expect(screen.getByRole("article", { name: "28 南信牛奶甜品专家" })).toBeVisible();
+    expect(screen.queryByRole("article", { name: "1 陈家祠" })).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "绝对不存在的地点" } });
+    expect(screen.getByText("没有找到符合条件的地方")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "清除所有发现筛选" }));
+    expect(screen.getByText("找到 30 个地方")).toBeVisible();
+  });
+
+  it("composes food and Liwan filters, then sorts by couple fit", () => {
+    render(<DiscoveryHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "只看美食" }));
+    fireEvent.click(screen.getByRole("button", { name: "筛选行政区：荔湾" }));
+    const results = screen.getByRole("region", { name: "发现地点列表" });
+    expect(within(results).getAllByRole("article").length).toBeGreaterThan(0);
+    expect(within(results).queryByText("陈家祠")).not.toBeInTheDocument();
+    expect(within(results).getByText("南信牛奶甜品专家")).toBeVisible();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "发现地点排序" }), {
+      target: { value: "couple" },
+    });
+    expect(screen.getByRole("combobox", { name: "发现地点排序" })).toHaveValue("couple");
+  });
+
+  it("focuses the matching card from a map marker and the marker from a card", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    render(<DiscoveryHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+    expect(document.activeElement).toBe(document.getElementById("discovery-card-chen-clan-academy"));
+    expect(scrollIntoView).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "在总览图查看陈家祠" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+    vi.unstubAllGlobals();
+  });
+
+  it("manages a separately filtered wishlist without changing the main catalog", () => {
+    render(<DiscoveryHarness initialWishlist={["shamian", "nanxin-dessert"]} />);
+
+    const panel = screen.getByRole("region", { name: "我的想去清单" });
+    expect(within(panel).getByText("2 个候选")).toBeVisible();
+    expect(within(panel).getByText("已加入路线候选，不会改写 8 月 20 日主线")).toBeVisible();
+    fireEvent.click(within(panel).getByRole("button", { name: "想去清单只看美食" }));
+    expect(within(panel).getByRole("button", { name: "移除想去：南信牛奶甜品专家" })).toBeVisible();
+    expect(within(panel).queryByRole("button", { name: "移除想去：沙面" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "清空想去" }));
+    expect(within(panel).getByText("还没有想去地点")) .toBeVisible();
+    expect(screen.getByText("找到 30 个地方")).toBeVisible();
   });
 });
