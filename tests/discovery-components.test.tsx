@@ -186,6 +186,37 @@ describe("DiscoveryMap", () => {
     expect(screen.getByRole("link", { name: "05 沙面 · 荔湾" }))
       .toHaveAttribute("href", "#discover/shamian");
   });
+
+  it("asks for an exact place when a physical tap hits a dense map cluster", () => {
+    const onSelect = vi.fn();
+    render(
+      <DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={onSelect} />,
+    );
+    const markerLayer = screen.getByLabelText("地图地点标记");
+    Object.defineProperty(markerLayer, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 660,
+        height: 380,
+        right: 660,
+        bottom: 380,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    });
+    const shamianMarker = screen.getByRole("button", { name: "地图位置 5：沙面" });
+    const x = Number.parseFloat(shamianMarker.style.left) / 100 * 660;
+    const y = Number.parseFloat(shamianMarker.style.top) / 100 * 380;
+
+    fireEvent.click(markerLayer, { clientX: x, clientY: y, detail: 1 });
+
+    expect(screen.getByText("点位密集，请选择地点")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "从地图选择：沙面" }));
+    expect(onSelect).toHaveBeenCalledWith("shamian");
+  });
 });
 
 describe("DiscoveryView", () => {
@@ -195,7 +226,8 @@ describe("DiscoveryView", () => {
     const region = screen.getByRole("region", { name: "发现广州" });
     expect(within(region).getByRole("heading", { name: "30 个地方，读懂广州的古今与烟火气" }))
       .toBeVisible();
-    expect(within(region).getAllByRole("button", { name: /^精选地点/ })).toHaveLength(6);
+    const featured = within(region).getByLabelText("六个编辑精选");
+    expect(within(featured).getAllByRole("button")).toHaveLength(6);
     expect(within(region).getByText("21 个景点 · 9 家粤味")).toBeVisible();
   });
 
@@ -248,6 +280,27 @@ describe("DiscoveryView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "在总览图查看陈家祠" }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+    vi.unstubAllGlobals();
+  });
+
+  it("reveals a map-selected card even when the current filters exclude it", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    render(<DiscoveryHarness initialFilters={{
+      ...defaultDiscoveryFilters,
+      query: "双皮奶",
+      kind: "food",
+      districts: ["荔湾"],
+    }} />);
+
+    expect(screen.getByText("找到 1 个地方")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+
+    expect(screen.getByRole("article", { name: "1 陈家祠" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "收起陈家祠详情" })).toBeVisible();
+    expect(screen.getByText("1 个筛选结果 · 另显示地图所选地点")).toBeVisible();
     vi.unstubAllGlobals();
   });
 

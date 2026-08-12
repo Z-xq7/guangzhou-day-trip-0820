@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import type { DiscoveryPlace } from "./discovery-types";
 
 interface DiscoveryMapProps {
@@ -28,6 +28,35 @@ function markerPosition(place: DiscoveryPlace) {
 
 export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [tapCandidates, setTapCandidates] = useState<DiscoveryPlace[]>([]);
+
+  const selectNearestMarker = (event: MouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const tapX = event.clientX - bounds.left;
+    const tapY = event.clientY - bounds.top;
+    const candidates = places
+      .map((place) => {
+        const position = markerPosition(place);
+        const markerX = Number.parseFloat(position.left) / 100 * bounds.width;
+        const markerY = Number.parseFloat(position.top) / 100 * bounds.height;
+        return { place, distance: Math.hypot(markerX - tapX, markerY - tapY) };
+      })
+      .filter((candidate) => candidate.distance <= 26)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 8)
+      .map((candidate) => candidate.place);
+    if (candidates.length === 1) {
+      onSelect(candidates[0].id);
+      return;
+    }
+    setTapCandidates(candidates);
+  };
+
+  const chooseCandidate = (place: DiscoveryPlace) => {
+    setTapCandidates([]);
+    onSelect(place.id);
+  };
 
   return (
     <section id="discovery-map" className="discovery-map" aria-labelledby="discovery-map-title">
@@ -66,7 +95,11 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
               onError={() => setImageFailed(true)}
             />
           )}
-          <div className="discovery-map-markers" aria-label="地图地点标记">
+          <div
+            className="discovery-map-markers"
+            aria-label="地图地点标记"
+            onClick={selectNearestMarker}
+          >
             {places.map((place) => (
               <button
                 key={place.id}
@@ -76,12 +109,38 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
                 type="button"
                 aria-label={`地图位置 ${place.index}：${place.name}`}
                 aria-pressed={selectedId === place.id}
-                onClick={() => onSelect(place.id)}
+                onClick={(event) => {
+                  // Keyboard/programmatic activation has no pointer coordinates.
+                  // Physical taps bubble to the map layer, which resolves dense overlaps.
+                  if (event.detail === 0) {
+                    event.stopPropagation();
+                    onSelect(place.id);
+                  }
+                }}
               >
                 <span>{place.index}</span>
               </button>
             ))}
           </div>
+          {tapCandidates.length > 1 ? (
+            <div className="discovery-map-picker" role="dialog" aria-label="选择地图地点">
+              <strong>点位密集，请选择地点</strong>
+              <button type="button" onClick={() => setTapCandidates([])}>关闭</button>
+              <div>
+                {tapCandidates.map((place) => (
+                  <button
+                    key={place.id}
+                    type="button"
+                    aria-label={`从地图选择：${place.name}`}
+                    onClick={() => chooseCandidate(place)}
+                  >
+                    <span>{String(place.index).padStart(2, "0")}</span>
+                    {place.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
         <figcaption>
           <strong>位置示意，不替代实时导航</strong>

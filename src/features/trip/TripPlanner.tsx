@@ -113,6 +113,15 @@ function updateActiveView(view: MobileView) {
   updateTripState((current) => ({ ...current, activeView: view }));
 }
 
+function revealViewStart(view: MobileView) {
+  const reveal = () => document.getElementById(view)?.scrollIntoView?.({ block: "start" });
+  if (typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(reveal);
+  } else {
+    window.setTimeout(reveal, 0);
+  }
+}
+
 export function TripPlanner() {
   const tripState = useSyncExternalStore(
     subscribeTripState,
@@ -235,6 +244,7 @@ export function TripPlanner() {
     if (window.location.hash !== nextHash) {
       window.history.pushState(null, "", nextHash);
     }
+    revealViewStart(view);
   }, [discoveryState]);
 
   const setDiscoveryFilters = useCallback((filters: DiscoveryFilters) => {

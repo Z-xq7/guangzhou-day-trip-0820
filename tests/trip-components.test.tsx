@@ -413,6 +413,34 @@ describe("TripPlanner", () => {
     expect(screen.queryByLabelText("下一站快捷操作")).not.toBeInTheDocument();
   });
 
+  it.each([true, false])(
+    "scrolls a newly selected function to its own start after layout commits (mobile=%s)",
+    async (mobile) => {
+    installMatchMedia(mobile);
+    const scrollIntoView = vi.fn();
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    window.history.replaceState(null, "", "#route");
+    render(<TripPlanner />);
+
+    const mobileNav = within(screen.getByRole("navigation", { name: "手机功能导航" }));
+    fireEvent.click(mobileNav.getByRole("link", { name: "发现" }));
+
+    await waitFor(() => {
+      expect(requestAnimationFrame).toHaveBeenCalled();
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    });
+    vi.unstubAllGlobals();
+    },
+  );
+
   it("owns discovery selection history and restores it on popstate", () => {
     installMatchMedia(true);
     window.history.replaceState(null, "", "#discover/chen-clan-academy");

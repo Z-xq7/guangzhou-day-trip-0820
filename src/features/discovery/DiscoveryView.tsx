@@ -87,6 +87,15 @@ export function DiscoveryView({
       .filter((place) => !onlyWishlist || wishlistIds.includes(place.id));
     return sortDiscoveryPlaces(filtered, filters.sort);
   }, [filters, onlyWishlist, wishlistIds]);
+  const selectedPlace = selectedPlaceId
+    ? discoveryPlaces.find((place) => place.id === selectedPlaceId)
+    : undefined;
+  const selectedIsOutsideFilters = Boolean(
+    selectedPlace && !filteredPlaces.some((place) => place.id === selectedPlace.id),
+  );
+  const displayedPlaces = selectedPlace && selectedIsOutsideFilters
+    ? [selectedPlace, ...filteredPlaces]
+    : filteredPlaces;
   const wishlistPlaces = discoveryPlaces.filter((place) => (
     wishlistIds.includes(place.id) && (wishlistKind === "all" || place.kind === wishlistKind)
   ));
@@ -130,7 +139,6 @@ export function DiscoveryView({
             <button
               key={place.id}
               type="button"
-              aria-label={`精选地点 ${place.index}：${place.name}`}
               onClick={() => selectAndRevealCard(place.id)}
             >
               <span>{String(place.index).padStart(2, "0")}</span>
@@ -261,7 +269,11 @@ export function DiscoveryView({
 
         <main className="discovery-results">
           <div className="discovery-results-toolbar">
-            <strong>找到 {filteredPlaces.length} 个地方</strong>
+            <strong>
+              {selectedIsOutsideFilters
+                ? `${filteredPlaces.length} 个筛选结果 · 另显示地图所选地点`
+                : `找到 ${filteredPlaces.length} 个地方`}
+            </strong>
             <label>
               <span>排序</span>
               <select
@@ -330,7 +342,7 @@ export function DiscoveryView({
           </section>
 
           <section className="discovery-card-grid" aria-label="发现地点列表">
-            {filteredPlaces.length ? filteredPlaces.map((place) => (
+            {displayedPlaces.length ? displayedPlaces.map((place) => (
               <DiscoveryCard
                 key={place.id}
                 place={place}

@@ -103,12 +103,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .discovery-map-canvas { position: relative; aspect-ratio: 8 / 5; overflow: hidden; border: 1px solid rgba(255,255,255,0.2); background: #e9e2d5; }
 .discovery-map-canvas > img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .discovery-map-fallback { width: 100%; height: 100%; display: grid; place-content: center; gap: 6px; text-align: center; color: var(--ink); background: repeating-linear-gradient(45deg, #efe7d8 0 18px, #e5dac6 18px 36px); }
-.discovery-map-markers { position: absolute; inset: 0; }
-.discovery-map-markers button { width: 44px; height: 44px; position: absolute; z-index: 2; transform: translate(-50%, -50%); border: 0; border-radius: 50%; display: grid; place-items: center; background: transparent; cursor: pointer; }
+.discovery-map-markers { position: absolute; inset: 0; cursor: crosshair; }
+.discovery-map-markers button { width: 44px; height: 44px; position: absolute; z-index: 2; transform: translate(-50%, -50%); border: 0; border-radius: 50%; display: grid; place-items: center; background: transparent; pointer-events: none; }
 .discovery-map-markers button > span { width: 29px; height: 29px; border: 2px solid white; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: #172c27; box-shadow: 0 3px 9px rgba(0,0,0,0.35); font-size: 10px; font-weight: 850; }
-.discovery-map-markers button.is-food > span { background: #e96751; color: white; }
+.discovery-map-markers button.is-food > span { background: #b83f30; color: white; }
 .discovery-map-markers button[aria-pressed="true"] { z-index: 5; }
 .discovery-map-markers button[aria-pressed="true"] > span { outline: 4px solid rgba(255,255,255,0.85); transform: scale(1.15); }
+.discovery-map-picker { position: absolute; z-index: 8; inset: auto 16px 16px; max-height: 60%; overflow: auto; padding: 12px; border: 1px solid rgba(222,207,173,0.95); border-radius: 14px; background: rgba(255,252,244,0.97); box-shadow: 0 12px 30px rgba(23,44,39,0.25); color: var(--ink); }
+.discovery-map-picker > strong { display: inline-block; margin: 0 54px 9px 0; }
+.discovery-map-picker > button { position: absolute; top: 7px; right: 7px; min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--red); font-weight: 750; cursor: pointer; }
+.discovery-map-picker > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.discovery-map-picker > div button { min-height: 44px; padding: 7px 10px; border: 1px solid rgba(23,63,54,0.2); border-radius: 9px; background: white; color: var(--ink); text-align: left; cursor: pointer; }
+.discovery-map-picker > div span { margin-right: 6px; color: var(--red); font-weight: 850; }
 .discovery-map figcaption { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; color: rgba(255,255,255,0.68); font-size: 10px; }
 .discovery-map figcaption strong { color: white; }
 .discovery-map-index { margin-top: 14px; }
@@ -599,17 +605,17 @@ footer > a { margin-left: auto; min-height: 44px; display: inline-flex; align-it
   .discovery-featured::-webkit-scrollbar, .discovery-filter-row::-webkit-scrollbar { display: none; }
   .discovery-featured button { flex: 0 0 min(76vw, 290px); min-height: 126px; scroll-snap-align: start; }
   .discovery-workspace { width: 100%; padding: 0; display: block; }
-  .discovery-filters { position: sticky; z-index: 850; top: 58px; padding: 10px 14px; border-width: 0 0 1px; box-shadow: 0 8px 18px rgba(23,63,54,0.08); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-  .discovery-search { grid-column: 1 / -1; }
-  .discovery-search > span { display: none; }
+  .discovery-filters { position: relative; z-index: 2; top: auto; padding: 16px 14px; border-width: 0 0 1px; box-shadow: 0 8px 18px rgba(23,63,54,0.08); display: grid; grid-template-columns: minmax(0, 1fr); gap: 13px; }
+  .discovery-search { grid-column: auto; }
   .discovery-search input { min-height: 44px; }
-  .discovery-filters fieldset { display: contents; }
-  .discovery-filters fieldset legend { display: none; }
-  .discovery-filters > fieldset:nth-of-type(n + 2), .discovery-filters > details, .discovery-only-wishlist { display: none; }
+  .discovery-filters fieldset { display: block; }
+  .discovery-filters fieldset legend { display: block; }
+  .discovery-filters > details { padding-top: 6px; }
+  .discovery-only-wishlist { display: block; }
   .discovery-filter-row { flex-wrap: nowrap; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .discovery-filter-row button { flex: 0 0 auto; }
   .discovery-results { width: min(100% - 28px, 620px); margin: 0 auto; }
-  .discovery-results-toolbar { position: sticky; z-index: 840; top: 154px; margin-inline: -14px; padding: 6px 14px; background: rgba(243,236,223,0.97); }
+  .discovery-results-toolbar { position: sticky; z-index: 840; top: 58px; margin-inline: -14px; padding: 6px 14px; background: rgba(243,236,223,0.97); }
   .discovery-results-toolbar > strong { font-size: 16px; }
   .discovery-results-toolbar label > span { display: none; }
   .discovery-results-toolbar select { max-width: 150px; }
