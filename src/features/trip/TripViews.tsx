@@ -203,6 +203,7 @@ export function RouteView({
         </a>
         <nav aria-label="页面导航">
           <a href="#route">路线</a>
+          <a href="#discover">发现</a>
           <a href="#map">地图</a>
           <a href="#todo">预约</a>
           <a href="#me">预算</a>
@@ -500,6 +501,7 @@ export interface MyTripViewProps {
   completedStops: number;
   totalStops: number;
   completedBookings: number;
+  wishlistCount?: number;
   budget: ReturnType<typeof summarizeBudget>;
   budgetItems?: BudgetItem[];
   onNavigateView?: (view: MobileView) => void;
@@ -523,6 +525,7 @@ export function MyTripView({
   completedStops,
   totalStops,
   completedBookings,
+  wishlistCount = 0,
   budget,
   budgetItems = defaultBudgetItems,
   onNavigateView,
@@ -539,6 +542,17 @@ export function MyTripView({
         <div><span className="stat-kicker">当前模式</span><strong>{scenarioLabels[scenario]}</strong><small>可随时切换</small></div>
         <div><span className="stat-kicker">景点打卡</span><strong>{completedStops}/{totalStops}</strong><small>仅保存在本机</small></div>
         <div><span className="stat-kicker">行前待办</span><strong>{completedBookings}/{bookingItems.length}</strong><small>按出发顺序办理</small></div>
+        <div className="my-wishlist-stat">
+          <span className="stat-kicker">想去地点</span>
+          <strong>{wishlistCount} 个</strong>
+          <button
+            type="button"
+            aria-label={`查看 ${wishlistCount} 个想去地点`}
+            onClick={() => onNavigateView?.("discover")}
+          >
+            打开候选
+          </button>
+        </div>
         <div><span className="stat-kicker">双人预算</span><strong>¥{budget.couple.min}–{budget.couple.max}</strong><small>不含往返高铁</small></div>
       </section>
 

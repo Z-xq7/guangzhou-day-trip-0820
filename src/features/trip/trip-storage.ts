@@ -50,7 +50,10 @@ function hasTripProgress(value: unknown): value is Omit<LegacyTripState, "versio
 }
 
 function isMobileView(value: unknown): value is MobileView {
-  return typeof value === "string" && ["route", "map", "todo", "me"].includes(value);
+  return (
+    typeof value === "string" &&
+    ["route", "discover", "map", "todo", "me"].includes(value)
+  );
 }
 
 function isV3TripState(value: unknown): value is TripState {

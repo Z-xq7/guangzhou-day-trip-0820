@@ -1,6 +1,6 @@
 export type Scenario = "normal" | "rain" | "delay";
 
-export type MobileView = "route" | "map" | "todo" | "me";
+export type MobileView = "route" | "discover" | "map" | "todo" | "me";
 
 export interface StopPhoto {
   src: string;

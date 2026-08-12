@@ -2,6 +2,7 @@ import type { MobileView } from "../../data/types";
 
 const views: Array<{ id: MobileView; label: string; mark: string }> = [
   { id: "route", label: "路线", mark: "线" },
+  { id: "discover", label: "发现", mark: "探" },
   { id: "map", label: "地图", mark: "图" },
   { id: "todo", label: "待办", mark: "办" },
   { id: "me", label: "我的", mark: "我" },
