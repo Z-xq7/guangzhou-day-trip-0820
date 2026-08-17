@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { formatDistanceKm, haversineDistanceKm } from "./discovery-distance";
 import { DiscoveryMapPlacePanel } from "./DiscoveryMapPlacePanel";
 import {
@@ -12,7 +19,7 @@ import type { DiscoveryPlace } from "./discovery-types";
 export interface DiscoveryMapProps {
   places: DiscoveryPlace[];
   selectedId: string | null;
-  onSelect(id: string): void;
+  onSelect(id: string | null): void;
   enabled?: boolean;
   onOpenDetails?(id: string): void;
 }
@@ -50,15 +57,13 @@ export function DiscoveryMap({
   const [controllerRevision, setControllerRevision] = useState(0);
   const [originId, setOriginId] = useState<string | null>(null);
   const [destinationId, setDestinationId] = useState<string | null>(null);
-  const [dismissedPanelId, setDismissedPanelId] = useState<string | null>(null);
   const mapElement = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<OsmMapController | null>(null);
+  const selectPlace = useCallback((id: string) => onSelect(id), [onSelect]);
   const selectedIdRef = useRef(selectedId);
-  const selectPlaceRef = useRef<(id: string) => void>(() => undefined);
+  const selectPlaceRef = useRef(selectPlace);
 
-  selectedIdRef.current = selectedId;
-
-  const selectedPlace = selectedId && selectedId !== dismissedPanelId
+  const selectedPlace = selectedId
     ? places.find((place) => place.id === selectedId) ?? null
     : null;
   const origin = useMemo(
@@ -73,17 +78,10 @@ export function DiscoveryMap({
     ? formatDistanceKm(haversineDistanceKm(origin.coordinate, destination.coordinate))
     : null;
 
-  const selectPlace = (id: string) => {
-    setDismissedPanelId(null);
-    onSelect(id);
-  };
-  selectPlaceRef.current = selectPlace;
-
   useEffect(() => {
-    setDismissedPanelId((dismissedId) => (
-      dismissedId && selectedId !== dismissedId ? null : dismissedId
-    ));
-  }, [selectedId]);
+    selectedIdRef.current = selectedId;
+    selectPlaceRef.current = selectPlace;
+  }, [selectPlace, selectedId]);
 
   useEffect(() => {
     if (!enabled || !mapElement.current) {
@@ -324,7 +322,7 @@ export function DiscoveryMap({
           onSetOrigin={setOrigin}
           onSetDestination={setDestinationId}
           onOpenDetails={(id) => onOpenDetails?.(id)}
-          onClose={() => setDismissedPanelId(selectedPlace.id)}
+          onClose={() => onSelect(null)}
         />
       ) : null}
 

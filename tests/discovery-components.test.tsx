@@ -96,6 +96,25 @@ function DiscoveryHarness({
   );
 }
 
+function DiscoveryMapSelectionHarness() {
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
+    "chen-clan-academy",
+  );
+
+  return (
+    <>
+      <button type="button" onClick={() => setSelectedPlaceId("chen-clan-academy")}>
+        外部重新选择陈家祠
+      </button>
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId={selectedPlaceId}
+        onSelect={setSelectedPlaceId}
+      />
+    </>
+  );
+}
+
 function renderCard(overrides: Partial<React.ComponentProps<typeof DiscoveryCard>> = {}) {
   const props: React.ComponentProps<typeof DiscoveryCard> = {
     place: chenClan,
@@ -259,34 +278,16 @@ describe("DiscoveryMap", () => {
 
     fireEvent.click(within(panel).getByRole("button", { name: "查看陈家祠完整介绍" }));
     expect(onOpenDetails).toHaveBeenCalledWith("chen-clan-academy");
-    fireEvent.click(within(panel).getByRole("button", { name: "关闭地图地点卡" }));
-    expect(screen.queryByRole("complementary", { name: "地图所选地点：陈家祠" }))
-      .not.toBeInTheDocument();
   });
 
-  it("reopens a dismissed place after an external selection leaves and returns", () => {
-    const view = render(
-      <DiscoveryMap
-        places={discoveryPlaces}
-        selectedId="chen-clan-academy"
-        onSelect={vi.fn()}
-      />,
-    );
+  it("closes the controlled selection and reopens it when selected externally", () => {
+    render(<DiscoveryMapSelectionHarness />);
+
     fireEvent.click(screen.getByRole("button", { name: "关闭地图地点卡" }));
+    expect(screen.queryByRole("complementary", { name: "地图所选地点：陈家祠" }))
+      .not.toBeInTheDocument();
 
-    view.rerender(
-      <DiscoveryMap places={discoveryPlaces} selectedId="canton-tower" onSelect={vi.fn()} />,
-    );
-    expect(screen.getByRole("complementary", { name: "地图所选地点：广州塔" }))
-      .toBeVisible();
-
-    view.rerender(
-      <DiscoveryMap
-        places={discoveryPlaces}
-        selectedId="chen-clan-academy"
-        onSelect={vi.fn()}
-      />,
-    );
+    fireEvent.click(screen.getByRole("button", { name: "外部重新选择陈家祠" }));
     expect(screen.getByRole("complementary", { name: "地图所选地点：陈家祠" }))
       .toBeVisible();
   });
