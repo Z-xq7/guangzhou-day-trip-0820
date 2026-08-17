@@ -1,13 +1,23 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { formatDistanceKm, haversineDistanceKm } from "./discovery-distance";
+import { DiscoveryMapPlacePanel } from "./DiscoveryMapPlacePanel";
+import {
+  createOsmMap,
+  type OsmMapController,
+} from "./osm-map-adapter";
 import type { DiscoveryPlace } from "./discovery-types";
 
-interface DiscoveryMapProps {
+export interface DiscoveryMapProps {
   places: DiscoveryPlace[];
   selectedId: string | null;
   onSelect(id: string): void;
+  enabled?: boolean;
+  onOpenDetails?(id: string): void;
 }
+
+type LiveStatus = "idle" | "loading" | "ready" | "unavailable";
 
 const mapBounds = { west: 113, east: 113.66, south: 22.84, north: 23.22 };
 
@@ -26,9 +36,102 @@ function markerPosition(place: DiscoveryPlace) {
   };
 }
 
-export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps) {
+export function DiscoveryMap({
+  places,
+  selectedId,
+  onSelect,
+  enabled = true,
+  onOpenDetails,
+}: DiscoveryMapProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [tapCandidates, setTapCandidates] = useState<DiscoveryPlace[]>([]);
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>("idle");
+  const [retryKey, setRetryKey] = useState(0);
+  const [controllerRevision, setControllerRevision] = useState(0);
+  const [originId, setOriginId] = useState<string | null>(null);
+  const [destinationId, setDestinationId] = useState<string | null>(null);
+  const [dismissedPanelId, setDismissedPanelId] = useState<string | null>(null);
+  const mapElement = useRef<HTMLDivElement>(null);
+  const controllerRef = useRef<OsmMapController | null>(null);
+  const selectedIdRef = useRef(selectedId);
+  const selectPlaceRef = useRef<(id: string) => void>(() => undefined);
+
+  selectedIdRef.current = selectedId;
+
+  const selectedPlace = selectedId && selectedId !== dismissedPanelId
+    ? places.find((place) => place.id === selectedId) ?? null
+    : null;
+  const origin = useMemo(
+    () => places.find((place) => place.id === originId) ?? null,
+    [originId, places],
+  );
+  const destination = useMemo(
+    () => places.find((place) => place.id === destinationId) ?? null,
+    [destinationId, places],
+  );
+  const distance = origin && destination
+    ? formatDistanceKm(haversineDistanceKm(origin.coordinate, destination.coordinate))
+    : null;
+
+  const selectPlace = (id: string) => {
+    setDismissedPanelId(null);
+    onSelect(id);
+  };
+  selectPlaceRef.current = selectPlace;
+
+  useEffect(() => {
+    if (!enabled || !mapElement.current) {
+      setLiveStatus("idle");
+      return;
+    }
+
+    let cancelled = false;
+    setLiveStatus("loading");
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) {
+        setLiveStatus((status) => status === "ready" ? status : "unavailable");
+      }
+    }, 7000);
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    void createOsmMap({
+      container: mapElement.current,
+      places,
+      selectedId: selectedIdRef.current,
+      reducedMotion,
+      onMarkerSelect: (id) => selectPlaceRef.current(id),
+      onFirstTileLoad: () => {
+        window.clearTimeout(timeout);
+        if (!cancelled) setLiveStatus("ready");
+      },
+      onTileError: () => undefined,
+    }).then((created) => {
+      if (cancelled) {
+        created.destroy();
+        return;
+      }
+      controllerRef.current = created;
+      setControllerRevision((revision) => revision + 1);
+    }).catch(() => {
+      window.clearTimeout(timeout);
+      if (!cancelled) setLiveStatus("unavailable");
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      controllerRef.current?.destroy();
+      controllerRef.current = null;
+    };
+  }, [enabled, places, retryKey]);
+
+  useEffect(() => {
+    if (selectedId) controllerRef.current?.focusPlace(selectedId);
+  }, [controllerRevision, selectedId]);
+
+  useEffect(() => {
+    controllerRef.current?.setDistanceLine(origin, destination);
+  }, [controllerRevision, destination, origin]);
 
   const selectNearestMarker = (event: MouseEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -47,7 +150,7 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
       .slice(0, 8)
       .map((candidate) => candidate.place);
     if (candidates.length === 1) {
-      onSelect(candidates[0].id);
+      selectPlace(candidates[0].id);
       return;
     }
     setTapCandidates(candidates);
@@ -55,14 +158,29 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
 
   const chooseCandidate = (place: DiscoveryPlace) => {
     setTapCandidates([]);
-    onSelect(place.id);
+    selectPlace(place.id);
+  };
+
+  const setOrigin = (id: string) => {
+    setOriginId(id);
+    setDestinationId(null);
+  };
+
+  const swapDistanceEndpoints = () => {
+    setOriginId(destinationId);
+    setDestinationId(originId);
+  };
+
+  const clearDistanceComparison = () => {
+    setOriginId(null);
+    setDestinationId(null);
   };
 
   return (
     <section id="discovery-map" className="discovery-map" aria-labelledby="discovery-map-title">
       <div className="discovery-map-heading">
         <div>
-          <span className="eyebrow">STATIC MAP · 静态总览</span>
+          <span className="eyebrow">OPENSTREETMAP · 渐进地图</span>
           <h2 id="discovery-map-title">30 个位置，一眼建立方向感</h2>
         </div>
         <div className="discovery-map-legend" aria-label="地图图例">
@@ -71,8 +189,38 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
         </div>
       </div>
 
+      <div className="discovery-map-controls" aria-label="地图范围">
+        <button type="button" onClick={() => controllerRef.current?.fitAllPlaces()}>
+          全部地点
+        </button>
+        <button type="button" onClick={() => controllerRef.current?.fitGuangzhou()}>
+          广州全域
+        </button>
+      </div>
+
+      <div
+        className="discovery-map-live-status"
+        role="status"
+        aria-label="实时地图状态"
+        aria-live="polite"
+      >
+        {liveStatus === "loading" ? <span>正在加载可缩放地图</span> : null}
+        {liveStatus === "ready" ? <span>可缩放地图已就绪</span> : null}
+        {liveStatus === "unavailable" ? (
+          <span>
+            实时地图暂不可用
+            <button type="button" onClick={() => setRetryKey((key) => key + 1)}>
+              重试加载
+            </button>
+          </span>
+        ) : null}
+      </div>
+
       <figure>
-        <div className="discovery-map-canvas">
+        <div
+          className={`discovery-map-canvas discovery-map-canvas--${liveStatus}`}
+          data-live-status={liveStatus}
+        >
           {imageFailed ? (
             <div
               className="discovery-map-fallback"
@@ -87,7 +235,7 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src="images/discovery/guangzhou-overview-map.webp"
-              alt="广州 30 个精选地点位置总览图"
+              alt="广州 30 个精选地点静态回退地图"
               width="1440"
               height="900"
               loading="lazy"
@@ -95,6 +243,13 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
               onError={() => setImageFailed(true)}
             />
           )}
+          {enabled ? (
+            <div
+              ref={mapElement}
+              className="discovery-map-live-layer"
+              aria-label="广州精选地点可缩放地图"
+            />
+          ) : null}
           <div
             className="discovery-map-markers"
             aria-label="地图地点标记"
@@ -114,7 +269,7 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
                   // Physical taps bubble to the map layer, which resolves dense overlaps.
                   if (event.detail === 0) {
                     event.stopPropagation();
-                    onSelect(place.id);
+                    selectPlace(place.id);
                   }
                 }}
               >
@@ -155,9 +310,40 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
         </figcaption>
       </figure>
 
+      {selectedPlace ? (
+        <DiscoveryMapPlacePanel
+          place={selectedPlace}
+          origin={origin}
+          destination={destination}
+          onSetOrigin={setOrigin}
+          onSetDestination={setDestinationId}
+          onOpenDetails={(id) => onOpenDetails?.(id)}
+          onClose={() => setDismissedPanelId(selectedPlace.id)}
+        />
+      ) : null}
+
+      <div className="discovery-map-distance">
+        {origin ? <span>A 起点：{origin.name}</span> : null}
+        {destination ? <span>B 终点：{destination.name}</span> : null}
+        {origin && destination ? (
+          <div className="discovery-map-distance__actions">
+            <button type="button" onClick={swapDistanceEndpoints}>互换 A/B</button>
+            <button type="button" onClick={clearDistanceComparison}>清除距离比较</button>
+          </div>
+        ) : null}
+        <div role="status" aria-label="距离比较结果" aria-live="polite">
+          {distance ? (
+            <>
+              <strong>{distance}</strong>
+              <span>直线距离，不代表步行、驾车或公共交通里程</span>
+            </>
+          ) : null}
+        </div>
+      </div>
+
       <details className="discovery-map-index">
         <summary>展开无障碍编号地点表</summary>
-        <ol>
+        <ol aria-label="广州精选地点编号表">
           {places.map((place) => (
             <li key={place.id}>
               <a
@@ -165,7 +351,7 @@ export function DiscoveryMap({ places, selectedId, onSelect }: DiscoveryMapProps
                 aria-current={selectedId === place.id ? "location" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
-                  onSelect(place.id);
+                  selectPlace(place.id);
                 }}
               >
                 {String(place.index).padStart(2, "0")} {place.name} · {place.district}

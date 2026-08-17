@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { discoveryPlaces } from "../src/data/discovery";
 import { DiscoveryCard } from "../src/features/discovery/DiscoveryCard";
 import { DiscoveryMap } from "../src/features/discovery/DiscoveryMap";
@@ -11,8 +11,31 @@ import { DiscoveryView } from "../src/features/discovery/DiscoveryView";
 import { defaultDiscoveryFilters } from "../src/features/discovery/discovery-logic";
 import type { DiscoveryFilters } from "../src/features/discovery/discovery-types";
 
+const { createOsmMapMock } = vi.hoisted(() => ({
+  createOsmMapMock: vi.fn(),
+}));
+
+vi.mock("../src/features/discovery/osm-map-adapter", () => ({
+  createOsmMap: createOsmMapMock,
+}));
+
+const osmController = {
+  focusPlace: vi.fn(),
+  fitAllPlaces: vi.fn(),
+  fitGuangzhou: vi.fn(),
+  setDistanceLine: vi.fn(),
+  invalidateSize: vi.fn(),
+  destroy: vi.fn(),
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  createOsmMapMock.mockResolvedValue(osmController);
+});
+
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -155,13 +178,151 @@ describe("DiscoveryPhoto", () => {
 });
 
 describe("DiscoveryMap", () => {
+  it("keeps the local fallback visible before live tiles are ready", () => {
+    render(<DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />);
+
+    expect(screen.getByRole("img", { name: "广州 30 个精选地点静态回退地图" }))
+      .toBeVisible();
+    expect(screen.getByText("正在加载可缩放地图")).toBeVisible();
+  });
+
+  it("does not initialize the live layer when progressive enhancement is disabled", () => {
+    render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId={null}
+        onSelect={vi.fn()}
+        enabled={false}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "广州 30 个精选地点静态回退地图" }))
+      .toBeVisible();
+    expect(screen.queryByText("正在加载可缩放地图")).not.toBeInTheDocument();
+    expect(screen.queryByText("实时地图暂不可用")).not.toBeInTheDocument();
+  });
+
+  it("shows a selected place without a navigation entry and delegates its local actions", () => {
+    const onOpenDetails = vi.fn();
+    render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+        onOpenDetails={onOpenDetails}
+      />,
+    );
+
+    const panel = screen.getByRole("complementary", { name: "地图所选地点：陈家祠" });
+    expect(within(panel).getByText("站内推荐 4.8")).toBeVisible();
+    expect(within(panel).getByText(chenClan.summary)).toBeVisible();
+    expect(within(panel).queryByText(/百度|高德|导航/)).not.toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "查看陈家祠完整介绍" }));
+    expect(onOpenDetails).toHaveBeenCalledWith("chen-clan-academy");
+    fireEvent.click(within(panel).getByRole("button", { name: "关闭地图地点卡" }));
+    expect(screen.queryByRole("complementary", { name: "地图所选地点：陈家祠" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("compares Chen Clan Academy with Canton Tower in an announced result", () => {
+    const view = render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "设陈家祠为距离起点" }));
+    view.rerender(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="canton-tower"
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "比较陈家祠与广州塔" }));
+
+    const result = screen.getByRole("status", { name: "距离比较结果" });
+    expect(result).toHaveAttribute("aria-live", "polite");
+    expect(within(result).getByText("8.6 公里")).toBeVisible();
+    expect(within(result).getByText("直线距离，不代表步行、驾车或公共交通里程"))
+      .toBeVisible();
+  });
+
+  it("swaps and clears the two distance endpoints", () => {
+    const view = render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "设陈家祠为距离起点" }));
+    view.rerender(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="canton-tower"
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "比较陈家祠与广州塔" }));
+
+    expect(screen.getByText("A 起点：陈家祠")).toBeVisible();
+    expect(screen.getByText("B 终点：广州塔")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "互换 A/B" }));
+    expect(screen.getByText("A 起点：广州塔")).toBeVisible();
+    expect(screen.getByText("B 终点：陈家祠")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "清除距离比较" }));
+    expect(screen.queryByText("8.6 公里")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "互换 A/B" })).not.toBeInTheDocument();
+  });
+
+  it("retains the fallback after seven seconds and offers a visible retry", async () => {
+    vi.useFakeTimers();
+    render(<DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7000);
+    });
+
+    const status = screen.getByRole("status", { name: "实时地图状态" });
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(within(status).getByText("实时地图暂不可用")).toBeVisible();
+    expect(screen.getByRole("img", { name: "广州 30 个精选地点静态回退地图" }))
+      .toBeVisible();
+
+    fireEvent.click(within(status).getByRole("button", { name: "重试加载" }));
+    expect(within(status).getByText("正在加载可缩放地图")).toBeVisible();
+  });
+
+  it("keeps all places in a semantic list and exposes keyboard-reachable controls", () => {
+    render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+        enabled={false}
+      />,
+    );
+
+    const list = screen.getByRole("list", { name: "广州精选地点编号表" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(30);
+    const marker = screen.getByRole("button", { name: "地图位置 1：陈家祠" });
+    expect(marker.tagName).toBe("BUTTON");
+    expect(marker).toBeEnabled();
+    expect(screen.getByRole("button", { name: "全部地点" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "广州全域" })).toBeEnabled();
+  });
+
   it("renders one local overview image and 30 matching numbered markers", () => {
     const onSelect = vi.fn();
     render(
       <DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={onSelect} />,
     );
 
-    expect(screen.getByRole("img", { name: "广州 30 个精选地点位置总览图" }))
+    expect(screen.getByRole("img", { name: "广州 30 个精选地点静态回退地图" }))
       .toHaveAttribute("src", "images/discovery/guangzhou-overview-map.webp");
     expect(screen.getAllByRole("button", { name: /^地图位置/ })).toHaveLength(30);
     expect(screen.getByText("景点 01–21")).toBeVisible();
