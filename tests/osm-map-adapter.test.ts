@@ -117,6 +117,41 @@ describe("OSM adapter browser integration", () => {
     controller.destroy();
   });
 
+  it("keeps focus on the latest place when animated focus requests overlap", async () => {
+    const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+      pretendToBeVisual: true,
+    });
+    const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+    browserGlobals.window = dom.window;
+    browserGlobals.document = dom.window.document;
+    browserGlobals.HTMLElement = dom.window.HTMLElement;
+    browserGlobals.Element = dom.window.Element;
+    browserGlobals.SVGElement = dom.window.SVGElement;
+
+    const container = dom.window.document.createElement("div");
+    Object.defineProperties(container, {
+      clientHeight: { value: 500 },
+      clientWidth: { value: 700 },
+    });
+    dom.window.document.body.append(container);
+    const controller = await createOsmMap({
+      container,
+      places: discoveryPlaces,
+      selectedId: null,
+      reducedMotion: false,
+      onMarkerSelect: () => {},
+      onFirstTileLoad: () => {},
+      onTileError: () => {},
+    });
+
+    controller.focusPlace("chen-clan-academy");
+    controller.focusPlace("canton-tower");
+    await Promise.resolve();
+
+    expect(dom.window.document.activeElement?.getAttribute("title")).toBe("广州塔");
+    controller.destroy();
+  });
+
   it("activates a real marker once with Enter and once with Space", async () => {
     const dom = new JSDOM("<!doctype html><html><body></body></html>");
     const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;

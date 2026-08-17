@@ -115,7 +115,10 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
     iconAnchor: [22, 22],
   });
   const markerClusterGroup = L.markerClusterGroup({
-    animate: !options.reducedMotion,
+    // Keep cluster DOM transitions deterministic so a newer keyboard/card
+    // focus request cannot be overtaken by an older animation callback. The
+    // map itself still uses flyTo unless reduced motion is requested.
+    animate: false,
     disableClusteringAtZoom: 15,
     iconCreateFunction(cluster) {
       const count = cluster.getChildCount();
@@ -183,6 +186,8 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
 
   let distanceLine: ReturnType<typeof L.polyline> | null = null;
   let destroyed = false;
+  let focusRequestVersion = 0;
+  let pendingMoveEnd: (() => void) | null = null;
   const shouldAnimate = (animate: boolean | undefined) => animate !== false && !options.reducedMotion;
 
   const fitBounds = (bounds: [[number, number], [number, number]], animate?: boolean) => {
@@ -202,9 +207,25 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
         return;
       }
 
+      const requestVersion = ++focusRequestVersion;
+      if (pendingMoveEnd) {
+        map.off("moveend", pendingMoveEnd);
+        pendingMoveEnd = null;
+      }
+      // Stop the previous flight before registering the next listener so only
+      // the latest camera request can drive marker focus.
+      map.stop();
+      const isCurrentRequest = () => !destroyed && requestVersion === focusRequestVersion;
       const zoom = Math.max(map.getZoom(), 15);
       const focusMarker = () => {
+        pendingMoveEnd = null;
+        if (!isCurrentRequest()) {
+          return;
+        }
         markerClusterGroup.zoomToShowLayer(marker, () => {
+          if (!isCurrentRequest()) {
+            return;
+          }
           const place = options.places.find((candidate) => candidate.id === id);
           if (place) {
             const markerLabel = `地图位置 ${String(place.index).padStart(2, "0")}：${place.name}`;
@@ -214,7 +235,8 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
         });
       };
       if (shouldAnimate(animate)) {
-        map.once("moveend", focusMarker);
+        pendingMoveEnd = focusMarker;
+        map.once("moveend", pendingMoveEnd);
         map.flyTo(marker.getLatLng(), zoom);
         return;
       }
@@ -277,6 +299,11 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
       }
 
       destroyed = true;
+      focusRequestVersion += 1;
+      if (pendingMoveEnd) {
+        map.off("moveend", pendingMoveEnd);
+        pendingMoveEnd = null;
+      }
       clearPrimaryFallbackTimeout();
       map.remove();
     },
