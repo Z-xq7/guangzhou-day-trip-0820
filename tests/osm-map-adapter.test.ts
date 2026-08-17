@@ -27,6 +27,147 @@ describe("OSM adapter data contract", () => {
 });
 
 describe("OSM adapter browser integration", () => {
+  it("centers themed place and cluster icons on exact 44px geometry", async () => {
+    const dom = new JSDOM("<!doctype html><html><body></body></html>");
+    const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+    browserGlobals.window = dom.window;
+    browserGlobals.document = dom.window.document;
+    browserGlobals.HTMLElement = dom.window.HTMLElement;
+    browserGlobals.Element = dom.window.Element;
+    browserGlobals.SVGElement = dom.window.SVGElement;
+
+    const container = dom.window.document.createElement("div");
+    Object.defineProperties(container, {
+      clientHeight: { value: 300 },
+      clientWidth: { value: 400 },
+    });
+    dom.window.document.body.append(container);
+    const controller = await createOsmMap({
+      container,
+      places: discoveryPlaces,
+      selectedId: null,
+      reducedMotion: true,
+      onMarkerSelect: () => {},
+      onFirstTileLoad: () => {},
+      onTileError: () => {},
+    });
+
+    const cluster = container.querySelector<HTMLElement>(".osm-map-cluster");
+    expect(cluster).not.toBeNull();
+    expect(cluster?.style.width).toBe("44px");
+    expect(cluster?.style.height).toBe("44px");
+    expect(cluster?.style.marginLeft).toBe("-22px");
+    expect(cluster?.style.marginTop).toBe("-22px");
+
+    controller.focusPlace("chen-clan-academy", false);
+    const attraction = container.querySelector<HTMLElement>('[title="陈家祠"]');
+    expect(attraction).not.toBeNull();
+    expect(attraction?.classList.contains("osm-map-marker--attraction")).toBe(true);
+    expect(attraction?.style.width).toBe("44px");
+    expect(attraction?.style.height).toBe("44px");
+    expect(attraction?.style.marginLeft).toBe("-22px");
+    expect(attraction?.style.marginTop).toBe("-22px");
+
+    controller.focusPlace("nanxin-dessert", false);
+    expect(container.querySelector('[title="南信牛奶甜品专家"]')?.classList.contains(
+      "osm-map-marker--food",
+    )).toBe(true);
+    controller.destroy();
+  });
+
+  it("keeps controlled selection semantics after a clustered marker is revealed", async () => {
+    const dom = new JSDOM("<!doctype html><html><body></body></html>");
+    const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+    browserGlobals.window = dom.window;
+    browserGlobals.document = dom.window.document;
+    browserGlobals.HTMLElement = dom.window.HTMLElement;
+    browserGlobals.Element = dom.window.Element;
+    browserGlobals.SVGElement = dom.window.SVGElement;
+
+    const container = dom.window.document.createElement("div");
+    Object.defineProperties(container, {
+      clientHeight: { value: 300 },
+      clientWidth: { value: 400 },
+    });
+    dom.window.document.body.append(container);
+    const controller = await createOsmMap({
+      container,
+      places: discoveryPlaces,
+      selectedId: null,
+      reducedMotion: true,
+      onMarkerSelect: () => {},
+      onFirstTileLoad: () => {},
+      onTileError: () => {},
+    });
+
+    controller.setSelectedPlace("chen-clan-academy");
+    controller.focusPlace("chen-clan-academy", false);
+    await Promise.resolve();
+
+    const marker = container.querySelector<HTMLElement>('[title="陈家祠"]');
+    expect(marker?.classList.contains("is-selected")).toBe(true);
+    expect(marker?.getAttribute("aria-current")).toBe("location");
+    expect(marker?.getAttribute("aria-pressed")).toBe("true");
+    expect(dom.window.document.activeElement).toBe(marker);
+
+    controller.setSelectedPlace(null);
+    expect(marker?.classList.contains("is-selected")).toBe(false);
+    expect(marker?.hasAttribute("aria-current")).toBe(false);
+    expect(marker?.getAttribute("aria-pressed")).toBe("false");
+    controller.destroy();
+  });
+
+  it("activates a real marker once with Enter and once with Space", async () => {
+    const dom = new JSDOM("<!doctype html><html><body></body></html>");
+    const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+    browserGlobals.window = dom.window;
+    browserGlobals.document = dom.window.document;
+    browserGlobals.HTMLElement = dom.window.HTMLElement;
+    browserGlobals.Element = dom.window.Element;
+    browserGlobals.SVGElement = dom.window.SVGElement;
+
+    const container = dom.window.document.createElement("div");
+    Object.defineProperties(container, {
+      clientHeight: { value: 300 },
+      clientWidth: { value: 400 },
+    });
+    dom.window.document.body.append(container);
+    const onMarkerSelect = vi.fn();
+    const controller = await createOsmMap({
+      container,
+      places: discoveryPlaces.slice(0, 1),
+      selectedId: null,
+      reducedMotion: true,
+      onMarkerSelect,
+      onFirstTileLoad: () => {},
+      onTileError: () => {},
+    });
+    const marker = container.querySelector<HTMLElement>('[title="陈家祠"]')!;
+
+    const enter = new dom.window.KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    });
+    marker.dispatchEvent(enter);
+    marker.dispatchEvent(new dom.window.KeyboardEvent("keypress", {
+      bubbles: true,
+      key: "Enter",
+    }));
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onMarkerSelect).toHaveBeenCalledTimes(1);
+
+    const space = new dom.window.KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: " ",
+    });
+    marker.dispatchEvent(space);
+    expect(space.defaultPrevented).toBe(true);
+    expect(onMarkerSelect).toHaveBeenCalledTimes(2);
+    controller.destroy();
+  });
+
   it("keeps the primary OSM layer when another startup tile succeeds after one tile error", async () => {
     const dom = new JSDOM("<!doctype html><html><body></body></html>");
     const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;
@@ -72,7 +213,7 @@ describe("OSM adapter browser integration", () => {
     expect(() => controller.destroy()).not.toThrow();
   });
 
-  it("tries OSM France before the seven-second static fallback when the primary host hangs", async () => {
+  it("switches to OSM France at 3000ms and reports only its first successful tile", async () => {
     vi.useFakeTimers();
     try {
       const dom = new JSDOM("<!doctype html><html><body></body></html>");
@@ -89,23 +230,34 @@ describe("OSM adapter browser integration", () => {
         clientWidth: { value: 400 },
       });
       dom.window.document.body.append(container);
+      const onFirstTileLoad = vi.fn();
       const controller = await createOsmMap({
         container,
         places: discoveryPlaces.slice(0, 1),
         selectedId: null,
         reducedMotion: false,
         onMarkerSelect: () => {},
-        onFirstTileLoad: () => {},
+        onFirstTileLoad,
         onTileError: () => {},
       });
 
       expect(
         container.querySelector('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]'),
       ).toBeNull();
-      await vi.advanceTimersByTimeAsync(6999);
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(
+        container.querySelector('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]'),
+      ).toBeNull();
+      await vi.advanceTimersByTimeAsync(1);
       expect(
         container.querySelector('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]'),
       ).not.toBeNull();
+      const backupTiles = container.querySelectorAll<HTMLImageElement>(
+        'img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]',
+      );
+      backupTiles[0].dispatchEvent(new dom.window.Event("load"));
+      backupTiles[1].dispatchEvent(new dom.window.Event("load"));
+      expect(onFirstTileLoad).toHaveBeenCalledTimes(1);
       const backupHosts = new Set(
         [...container.querySelectorAll<HTMLImageElement>('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]')]
           .map((tile) => new URL(tile.src).hostname),

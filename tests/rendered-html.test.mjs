@@ -35,6 +35,7 @@ test("server-renders the Guangzhou day-trip planner", async () => {
   assert.match(html, /可缩放全城地图/);
   assert.match(html, /直线距离/);
   assert.match(html, /底图 © OpenStreetMap contributors/);
+  assert.match(html, /href="THIRD_PARTY_NOTICES\.txt"[^>]*>第三方软件许可<\/a>/);
   assert.match(html, /<ol aria-label="广州精选地点编号表">/);
   assert.equal(html.match(/href="#discover\//g)?.length, 30);
   assert.match(html, /og\.png/);
@@ -62,4 +63,24 @@ test("removes starter-only assets and metadata", async () => {
   assert.doesNotMatch(page + layout, /codex-preview|_sites-preview|SkeletonPreview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("../app/_sites-preview", templateRoot)));
+});
+
+test("retains complete third-party notices in both Vinext asset artifacts", async () => {
+  const [leafletLicense, markerClusterLicense, clientNotices, serverNotices] = await Promise.all([
+    readFile(new URL("../node_modules/leaflet/LICENSE", import.meta.url), "utf8"),
+    readFile(
+      new URL("../node_modules/leaflet.markercluster/MIT-LICENCE.txt", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../dist/client/THIRD_PARTY_NOTICES.txt", import.meta.url), "utf8"),
+    readFile(new URL("../dist/server/THIRD_PARTY_NOTICES.txt", import.meta.url), "utf8"),
+  ]);
+  const normalizedLicenses = [leafletLicense, markerClusterLicense]
+    .map((license) => license.replaceAll("\r\n", "\n").trim());
+
+  for (const notices of [clientNotices, serverNotices]) {
+    for (const license of normalizedLicenses) {
+      assert.ok(notices.includes(license));
+    }
+  }
 });

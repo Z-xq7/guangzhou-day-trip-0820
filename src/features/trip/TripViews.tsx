@@ -634,7 +634,13 @@ export function MyTripView({
 
       <footer>
         <span className="brand-seal" aria-hidden="true">粤</span>
-        <p>两个人，一日广州。<br /><small>路线数据不含定位，不上传任何个人信息。</small></p>
+        <p>
+          两个人，一日广州。<br />
+          <small>
+            路线数据不含定位，不上传任何个人信息。 · {" "}
+            <a href="THIRD_PARTY_NOTICES.txt">第三方软件许可</a>
+          </small>
+        </p>
         <a
           href="#route"
           onClick={isMobile && onNavigateView ? (event) => {

@@ -88,6 +88,10 @@ export function DiscoveryView({
 }: DiscoveryViewProps) {
   const [onlyWishlist, setOnlyWishlist] = useState(false);
   const [wishlistKind, setWishlistKind] = useState<"all" | DiscoveryKind>("all");
+  const [mapFocusRequest, setMapFocusRequest] = useState<{
+    id: string;
+    requestId: number;
+  } | null>(null);
   const filteredPlaces = useMemo(() => {
     const filtered = filterDiscoveryPlaces(discoveryPlaces, filters)
       .filter((place) => !onlyWishlist || wishlistIds.includes(place.id));
@@ -118,6 +122,10 @@ export function DiscoveryView({
 
   const selectAndRevealMap = (id: string) => {
     onSelectPlace(id);
+    setMapFocusRequest((current) => ({
+      id,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
     revealElement("discovery-map");
   };
 
@@ -301,6 +309,7 @@ export function DiscoveryView({
             enabled={!isMobile || isActive}
             onSelect={onSelectPlace}
             onOpenDetails={selectAndRevealCard}
+            focusRequest={mapFocusRequest}
           />
 
           <section className="discovery-wishlist" aria-label="我的想去清单">

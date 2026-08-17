@@ -22,6 +22,7 @@ export interface DiscoveryMapProps {
   onSelect(id: string | null): void;
   enabled?: boolean;
   onOpenDetails?(id: string): void;
+  focusRequest?: { id: string; requestId: number } | null;
 }
 
 type LiveStatus = "idle" | "loading" | "ready" | "unavailable";
@@ -49,6 +50,7 @@ export function DiscoveryMap({
   onSelect,
   enabled = true,
   onOpenDetails,
+  focusRequest = null,
 }: DiscoveryMapProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [tapCandidates, setTapCandidates] = useState<DiscoveryPlace[]>([]);
@@ -77,6 +79,8 @@ export function DiscoveryMap({
   const distance = origin && destination
     ? formatDistanceKm(haversineDistanceKm(origin.coordinate, destination.coordinate))
     : null;
+  const mapControlsReady = liveStatus === "ready"
+    && controllerRevision > 0;
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -130,8 +134,10 @@ export function DiscoveryMap({
   }, [enabled, places, retryKey]);
 
   useEffect(() => {
-    if (selectedId) controllerRef.current?.focusPlace(selectedId);
-  }, [controllerRevision, selectedId]);
+    controllerRef.current?.setSelectedPlace(selectedId);
+    const focusId = focusRequest?.id === selectedId ? focusRequest.id : selectedId;
+    if (focusId) controllerRef.current?.focusPlace(focusId);
+  }, [controllerRevision, focusRequest, selectedId]);
 
   useEffect(() => {
     controllerRef.current?.setDistanceLine(origin, destination);
@@ -194,10 +200,18 @@ export function DiscoveryMap({
       </div>
 
       <div className="discovery-map-controls" aria-label="地图范围">
-        <button type="button" onClick={() => controllerRef.current?.fitAllPlaces()}>
+        <button
+          type="button"
+          disabled={!mapControlsReady}
+          onClick={() => controllerRef.current?.fitAllPlaces()}
+        >
           全部地点
         </button>
-        <button type="button" onClick={() => controllerRef.current?.fitGuangzhou()}>
+        <button
+          type="button"
+          disabled={!mapControlsReady}
+          onClick={() => controllerRef.current?.fitGuangzhou()}
+        >
           广州全域
         </button>
       </div>
@@ -322,7 +336,24 @@ export function DiscoveryMap({
           onSetOrigin={setOrigin}
           onSetDestination={setDestinationId}
           onOpenDetails={(id) => onOpenDetails?.(id)}
-          onClose={() => onSelect(null)}
+          onClose={() => {
+            const markerId = selectedPlace.id;
+            onSelect(null);
+            const returnFocus = () => {
+              if (controllerRef.current) {
+                controllerRef.current.focusPlace(markerId, false);
+                return;
+              }
+              document.getElementById(`discovery-marker-${markerId}`)?.focus({
+                preventScroll: true,
+              });
+            };
+            if (typeof window.requestAnimationFrame === "function") {
+              window.requestAnimationFrame(returnFocus);
+            } else {
+              window.setTimeout(returnFocus, 0);
+            }
+          }}
         />
       ) : null}
 

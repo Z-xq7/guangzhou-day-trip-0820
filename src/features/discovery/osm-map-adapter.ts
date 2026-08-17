@@ -21,6 +21,7 @@ export interface OsmMapOptions {
 
 export interface OsmMapController {
   focusPlace(id: string, animate?: boolean): void;
+  setSelectedPlace(id: string | null): void;
   fitAllPlaces(animate?: boolean): void;
   fitGuangzhou(animate?: boolean): void;
   setDistanceLine(from: DiscoveryPlace | null, to: DiscoveryPlace | null): void;
@@ -104,28 +105,76 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
   primaryFallbackTimeout = window.setTimeout(switchToBackupTiles, 3000);
   tiles.addTo(map);
 
+  let selectedPlaceId = options.selectedId;
+  const createPlaceIcon = (place: DiscoveryPlace) => L.divIcon({
+    className: `osm-map-marker osm-map-marker--${place.kind}${
+      place.id === selectedPlaceId ? " is-selected" : ""
+    }`,
+    html: `<span>${String(place.index).padStart(2, "0")}</span>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+  });
   const markerClusterGroup = L.markerClusterGroup({
+    animate: !options.reducedMotion,
     disableClusteringAtZoom: 15,
+    iconCreateFunction(cluster) {
+      const count = cluster.getChildCount();
+      const size = count < 10 ? "small" : count < 20 ? "medium" : "large";
+      return L.divIcon({
+        className: `osm-map-cluster osm-map-cluster--${size}`,
+        html: `<span>${count}</span>`,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+    },
     showCoverageOnHover: false,
     spiderfyOnMaxZoom: true,
   });
   const markers = new Map<string, ReturnType<typeof L.marker>>();
+  const updateMarkerElement = (
+    marker: ReturnType<typeof L.marker>,
+    placeId: string,
+    markerLabel: string,
+  ) => {
+    const element = marker.getElement();
+    if (!element) {
+      return;
+    }
+
+    const isSelected = selectedPlaceId === placeId;
+    element.setAttribute("aria-label", markerLabel);
+    element.setAttribute("aria-pressed", String(isSelected));
+    element.classList.toggle("is-selected", isSelected);
+    if (isSelected) {
+      element.setAttribute("aria-current", "location");
+    } else {
+      element.removeAttribute("aria-current");
+    }
+  };
 
   for (const place of options.places) {
     const index = String(place.index).padStart(2, "0");
     const markerLabel = `地图位置 ${index}：${place.name}`;
     const marker = L.marker([place.coordinate.lat, place.coordinate.lng], {
       alt: markerLabel,
-      icon: L.divIcon({
-        className: `osm-map-marker osm-map-marker--${place.kind}${place.id === options.selectedId ? " is-selected" : ""}`,
-        html: `<span>${index}</span>`,
-      }),
+      icon: createPlaceIcon(place),
       keyboard: true,
       title: place.name,
     });
 
-    marker.on("add", () => marker.getElement()?.setAttribute("aria-label", markerLabel));
+    const activateMarker = () => options.onMarkerSelect(place.id);
+    marker.on("add", () => updateMarkerElement(marker, place.id, markerLabel));
     marker.on("click", () => options.onMarkerSelect(place.id));
+    marker.on("keydown", (event) => {
+      const keyboardEvent = event.originalEvent as KeyboardEvent;
+      if (keyboardEvent.key !== "Enter" && keyboardEvent.key !== " " && keyboardEvent.key !== "Spacebar") {
+        return;
+      }
+
+      keyboardEvent.preventDefault();
+      keyboardEvent.stopPropagation();
+      activateMarker();
+    });
     markers.set(place.id, marker);
     markerClusterGroup.addLayer(marker);
   }
@@ -154,12 +203,48 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
       }
 
       const zoom = Math.max(map.getZoom(), 15);
+      const focusMarker = () => {
+        markerClusterGroup.zoomToShowLayer(marker, () => {
+          const place = options.places.find((candidate) => candidate.id === id);
+          if (place) {
+            const markerLabel = `地图位置 ${String(place.index).padStart(2, "0")}：${place.name}`;
+            updateMarkerElement(marker, id, markerLabel);
+          }
+          marker.getElement()?.focus({ preventScroll: true });
+        });
+      };
       if (shouldAnimate(animate)) {
+        map.once("moveend", focusMarker);
         map.flyTo(marker.getLatLng(), zoom);
         return;
       }
 
       map.setView(marker.getLatLng(), zoom, { animate: false });
+      focusMarker();
+    },
+    setSelectedPlace(id) {
+      if (selectedPlaceId === id) {
+        return;
+      }
+
+      const previousId = selectedPlaceId;
+      selectedPlaceId = id;
+      for (const placeId of [previousId, id]) {
+        if (!placeId) {
+          continue;
+        }
+        const place = options.places.find((candidate) => candidate.id === placeId);
+        const marker = markers.get(placeId);
+        if (!place || !marker) {
+          continue;
+        }
+        marker.setIcon(createPlaceIcon(place));
+        updateMarkerElement(
+          marker,
+          placeId,
+          `地图位置 ${String(place.index).padStart(2, "0")}：${place.name}`,
+        );
+      }
     },
     fitAllPlaces,
     fitGuangzhou(animate) {

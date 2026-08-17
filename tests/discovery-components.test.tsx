@@ -26,6 +26,7 @@ vi.mock("../src/features/discovery/osm-map-adapter", () => ({
 function makeOsmController(): OsmMapController {
   return {
     focusPlace: vi.fn(),
+    setSelectedPlace: vi.fn(),
     fitAllPlaces: vi.fn(),
     fitGuangzhou: vi.fn(),
     setDistanceLine: vi.fn(),
@@ -243,6 +244,25 @@ describe("DiscoveryMap", () => {
       .toBeVisible();
   });
 
+  it("keeps range controls disabled until both the controller and live tiles are ready", async () => {
+    render(<DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />);
+    const allPlaces = screen.getByRole("button", { name: "全部地点" });
+    const guangzhou = screen.getByRole("button", { name: "广州全域" });
+
+    expect(allPlaces).toBeDisabled();
+    expect(guangzhou).toBeDisabled();
+    expect(screen.getByText("正在加载可缩放地图")).toBeVisible();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(allPlaces).toBeDisabled();
+
+    act(() => latestOsmOptions().onFirstTileLoad());
+    expect(allPlaces).toBeEnabled();
+    expect(guangzhou).toBeEnabled();
+    expect(screen.getByText("可缩放地图已就绪")).toBeVisible();
+  });
+
   it("does not initialize the live layer when progressive enhancement is disabled", () => {
     render(
       <DiscoveryMap
@@ -290,6 +310,72 @@ describe("DiscoveryMap", () => {
     fireEvent.click(screen.getByRole("button", { name: "外部重新选择陈家祠" }));
     expect(screen.getByRole("complementary", { name: "地图所选地点：陈家祠" }))
       .toBeVisible();
+  });
+
+  it("synchronizes later external selection and clearing into the live controller", async () => {
+    const view = render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(osmController.setSelectedPlace).toHaveBeenLastCalledWith("chen-clan-academy");
+
+    view.rerender(
+      <DiscoveryMap places={discoveryPlaces} selectedId="shamian" onSelect={vi.fn()} />,
+    );
+    expect(osmController.setSelectedPlace).toHaveBeenLastCalledWith("shamian");
+
+    view.rerender(
+      <DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />,
+    );
+    expect(osmController.setSelectedPlace).toHaveBeenLastCalledWith(null);
+  });
+
+  it("coalesces a new controlled selection and matching card focus request", async () => {
+    const view = render(
+      <DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    vi.mocked(osmController.focusPlace).mockClear();
+
+    view.rerender(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+        focusRequest={{ id: "chen-clan-academy", requestId: 1 }}
+      />,
+    );
+
+    expect(osmController.setSelectedPlace).toHaveBeenLastCalledWith("chen-clan-academy");
+    expect(osmController.focusPlace).toHaveBeenCalledTimes(1);
+    expect(osmController.focusPlace).toHaveBeenCalledWith("chen-clan-academy");
+  });
+
+  it("returns focus to the live marker when closing without reopening the panel", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    render(<DiscoveryMapSelectionHarness />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    vi.mocked(osmController.focusPlace).mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图地点卡" }));
+
+    expect(osmController.focusPlace).toHaveBeenCalledWith("chen-clan-academy", false);
+    expect(screen.queryByRole("complementary", { name: "地图所选地点：陈家祠" }))
+      .not.toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it("destroys an initialization that resolves after the map unmounts", async () => {
@@ -409,8 +495,8 @@ describe("DiscoveryMap", () => {
     const marker = screen.getByRole("button", { name: "地图位置 1：陈家祠" });
     expect(marker.tagName).toBe("BUTTON");
     expect(marker).toBeEnabled();
-    expect(screen.getByRole("button", { name: "全部地点" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "广州全域" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "全部地点" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "广州全域" })).toBeDisabled();
   });
 
   it("renders one local overview image and 30 matching numbered markers", () => {
@@ -570,6 +656,24 @@ describe("DiscoveryView", () => {
     fireEvent.click(screen.getByRole("button", { name: "在总览图查看陈家祠" }));
     expect(mapScrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
     expect(markerScrollIntoView).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("requests real-marker focus when an already selected card returns to the map", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    render(<DiscoveryHarness />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "查看陈家祠详情" }));
+    vi.mocked(osmController.focusPlace).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "在总览图查看陈家祠" }));
+
+    expect(osmController.focusPlace).toHaveBeenCalledWith("chen-clan-academy");
     vi.unstubAllGlobals();
   });
 

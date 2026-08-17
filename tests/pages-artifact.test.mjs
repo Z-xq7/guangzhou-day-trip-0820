@@ -59,6 +59,15 @@ test("builds a repository-scoped static trip planner", async () => {
   assert.match(scripts.join("\n"), /guangzhou-overview-map\.webp/);
   const bundledCss = styles.join("\n");
   assert.match(bundledCss, /\.leaflet-container/);
+  assert.match(bundledCss, /\.osm-map-marker\{[^}]*width:44px[^}]*height:44px/);
+  assert.match(bundledCss, /\.osm-map-marker--attraction/);
+  assert.match(bundledCss, /\.osm-map-marker--food/);
+  assert.match(bundledCss, /\.osm-map-marker\.is-selected/);
+  assert.match(bundledCss, /\.osm-map-marker:focus-visible/);
+  assert.match(bundledCss, /\.osm-map-cluster\{[^}]*width:44px[^}]*height:44px/);
+  assert.match(bundledCss, /\.osm-map-cluster--small/);
+  assert.match(bundledCss, /\.osm-map-cluster--medium/);
+  assert.match(bundledCss, /\.osm-map-cluster--large/);
   const mobileCss = bundledCss.match(
     /@media \(width<=760px\)\{([\s\S]*?)\}@media \(width<=430px\)/,
   )?.[1];
@@ -81,6 +90,16 @@ test("builds a repository-scoped static trip planner", async () => {
     await access(new URL(credit.file, discoveryDirectory));
   }
   await access(new URL("guangzhou-overview-map.webp", discoveryDirectory));
+  const notices = await readFile(new URL("THIRD_PARTY_NOTICES.txt", distRoot), "utf8");
+  const [leafletLicense, markerClusterLicense] = await Promise.all([
+    readFile(new URL("../node_modules/leaflet/LICENSE", import.meta.url), "utf8"),
+    readFile(
+      new URL("../node_modules/leaflet.markercluster/MIT-LICENCE.txt", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  assert.ok(notices.includes(leafletLicense.replaceAll("\r\n", "\n").trim()));
+  assert.ok(notices.includes(markerClusterLicense.trim()));
   await access(new URL("og.png", distRoot));
   await assert.rejects(access(new URL("assets/leaflet.css", distRoot)));
 });
