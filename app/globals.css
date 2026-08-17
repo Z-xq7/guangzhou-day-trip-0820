@@ -651,6 +651,7 @@ footer > a { margin-left: auto; min-height: 44px; display: inline-flex; align-it
   .discovery-map { margin-inline: 0; padding: 16px; }
   .discovery-map-heading { display: grid; }
   .discovery-map-canvas { min-height: 500px; height: 500px; }
+  .discovery-map-live-layer .leaflet-bottom { bottom: calc(64px + env(safe-area-inset-bottom)); }
   .discovery-map-markers button > span { width: 27px; height: 27px; font-size: 9px; }
   .discovery-map-place-panel { grid-template-columns: minmax(0, 1fr); padding: 14px; }
   .discovery-map-place-panel__heading { grid-column: auto; }

@@ -55,7 +55,16 @@ test("builds a repository-scoped static trip planner", async () => {
   assert.match(scripts.join("\n"), /images\/stops\//);
   assert.match(scripts.join("\n"), /images\/discovery\//);
   assert.match(scripts.join("\n"), /guangzhou-overview-map\.webp/);
-  assert.match(styles.join("\n"), /\.leaflet-container/);
+  const bundledCss = styles.join("\n");
+  assert.match(bundledCss, /\.leaflet-container/);
+  const mobileCss = bundledCss.match(
+    /@media \(width<=760px\)\{([\s\S]*?)\}@media \(width<=430px\)/,
+  )?.[1];
+  assert.ok(mobileCss, "expected a bundled mobile stylesheet");
+  assert.match(
+    mobileCss,
+    /\.discovery-map-live-layer \.leaflet-bottom\{bottom:calc\(64px \+ env\(safe-area-inset-bottom\)\)\}/,
+  );
   assert.doesNotMatch(scripts.join("\n"), /maps\.googleapis\.com|webapi\.amap\.com/);
   assert.doesNotMatch(scripts.join("\n"), /upload\.wikimedia\.org/i);
   for (const file of photoFiles) {
