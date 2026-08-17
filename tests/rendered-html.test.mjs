@@ -32,6 +32,11 @@ test("server-renders the Guangzhou day-trip planner", async () => {
   assert.match(html, /30 个地方，读懂广州的古今与烟火气/);
   assert.match(html, /images\/discovery\/01-chen-clan-academy\.webp/);
   assert.match(html, /guangzhou-overview-map\.webp/);
+  assert.match(html, /可缩放全城地图/);
+  assert.match(html, /直线距离/);
+  assert.match(html, /底图 © OpenStreetMap contributors/);
+  assert.match(html, /<ol aria-label="广州精选地点编号表">/);
+  assert.equal(html.match(/href="#discover\//g)?.length, 30);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /<section id="(?:route|discover|map|todo|me)"[^>]*aria-hidden/);
   assert.match(html, /路线总览/);
@@ -39,7 +44,7 @@ test("server-renders the Guangzhou day-trip planner", async () => {
   assert.match(html, /高铁晚点/);
   assert.match(html, /珠江夜游/);
   assert.match(html, /不登录、不定位、不上传数据/);
-  assert.doesNotMatch(html, /Leaflet|高德/);
+  assert.doesNotMatch(html, /maps\.googleapis\.com|webapi\.amap\.com/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
 

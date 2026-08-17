@@ -44,11 +44,19 @@ test("builds a repository-scoped static trip planner", async () => {
       .filter((url) => url.endsWith(".js"))
       .map((url) => readFile(new URL(url.slice(repositoryBase.length), distRoot), "utf8")),
   );
+  const styles = await Promise.all(
+    entryUrls
+      .filter((url) => url.endsWith(".css"))
+      .map((url) => readFile(new URL(url.slice(repositoryBase.length), distRoot), "utf8")),
+  );
 
-  assert.doesNotMatch(scripts.join("\n"), /tile\.openstreetmap\.org|leaflet/i);
+  assert.match(scripts.join("\n"), /tile\.openstreetmap\.org/);
+  assert.match(scripts.join("\n"), /OpenStreetMap contributors/);
   assert.match(scripts.join("\n"), /images\/stops\//);
   assert.match(scripts.join("\n"), /images\/discovery\//);
   assert.match(scripts.join("\n"), /guangzhou-overview-map\.webp/);
+  assert.match(styles.join("\n"), /\.leaflet-container/);
+  assert.doesNotMatch(scripts.join("\n"), /maps\.googleapis\.com|webapi\.amap\.com/);
   assert.doesNotMatch(scripts.join("\n"), /upload\.wikimedia\.org/i);
   for (const file of photoFiles) {
     await access(new URL(`images/stops/${file}`, distRoot));

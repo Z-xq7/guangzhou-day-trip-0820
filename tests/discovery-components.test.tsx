@@ -67,9 +67,13 @@ const nanxin = discoveryPlaces.find((place) => place.id === "nanxin-dessert")!;
 function DiscoveryHarness({
   initialFilters = defaultDiscoveryFilters,
   initialWishlist = [],
+  isActive = true,
+  isMobile = false,
 }: {
   initialFilters?: DiscoveryFilters;
   initialWishlist?: string[];
+  isActive?: boolean;
+  isMobile?: boolean;
 }) {
   const [filters, setFilters] = useState(initialFilters);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
@@ -77,8 +81,8 @@ function DiscoveryHarness({
 
   return (
     <DiscoveryView
-      isActive
-      isMobile={false}
+      isActive={isActive}
+      isMobile={isMobile}
       filters={filters}
       selectedPlaceId={selectedPlaceId}
       wishlistIds={wishlistIds}
@@ -515,7 +519,7 @@ describe("DiscoveryView", () => {
     expect(screen.getByRole("combobox", { name: "发现地点排序" })).toHaveValue("couple");
   });
 
-  it("focuses the matching card from a map marker and the marker from a card", () => {
+  it("keeps marker selection on the map and reveals the card only from the place panel", () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
@@ -527,16 +531,48 @@ describe("DiscoveryView", () => {
     });
     render(<DiscoveryHarness />);
 
-    fireEvent.click(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
-    expect(document.activeElement).toBe(document.getElementById("discovery-card-chen-clan-academy"));
-    expect(scrollIntoView).toHaveBeenCalled();
+    const marker = screen.getByRole("button", { name: "地图位置 1：陈家祠" });
+    marker.focus();
+    fireEvent.click(marker);
 
-    fireEvent.click(screen.getByRole("button", { name: "在总览图查看陈家祠" }));
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+    expect(document.activeElement).toBe(marker);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    const panel = screen.getByRole("complementary", { name: "地图所选地点：陈家祠" });
+    fireEvent.click(within(panel).getByRole("button", { name: "查看陈家祠完整介绍" }));
+    expect(document.activeElement).toBe(document.getElementById("discovery-card-chen-clan-academy"));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
     vi.unstubAllGlobals();
   });
 
-  it("disables smooth map-to-card motion when the user prefers reduced motion", () => {
+  it("scrolls the card map action to the map container instead of a fallback marker", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    render(<DiscoveryHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "查看陈家祠详情" }));
+    const map = document.getElementById("discovery-map")!;
+    const marker = screen.getByRole("button", { name: "地图位置 1：陈家祠" });
+    const mapScrollIntoView = vi.fn();
+    const markerScrollIntoView = vi.fn();
+    Object.defineProperty(map, "scrollIntoView", {
+      configurable: true,
+      value: mapScrollIntoView,
+    });
+    Object.defineProperty(marker, "scrollIntoView", {
+      configurable: true,
+      value: markerScrollIntoView,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "在总览图查看陈家祠" }));
+    expect(mapScrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+    expect(markerScrollIntoView).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("disables smooth panel-to-card motion when the user prefers reduced motion", () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
@@ -550,9 +586,18 @@ describe("DiscoveryView", () => {
     render(<DiscoveryHarness />);
 
     fireEvent.click(screen.getByRole("button", { name: "地图位置 1：陈家祠" }));
+    const panel = screen.getByRole("complementary", { name: "地图所选地点：陈家祠" });
+    fireEvent.click(within(panel).getByRole("button", { name: "查看陈家祠完整介绍" }));
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "auto" });
     vi.unstubAllGlobals();
+  });
+
+  it("does not initialize live tiles for an inactive mobile discovery view", () => {
+    render(<DiscoveryHarness isMobile isActive={false} />);
+
+    expect(document.getElementById("discover")).toHaveAttribute("aria-hidden", "true");
+    expect(createOsmMapMock).not.toHaveBeenCalled();
   });
 
   it("reveals a map-selected card even when the current filters exclude it", () => {
