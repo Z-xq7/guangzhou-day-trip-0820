@@ -51,7 +51,9 @@ test("builds a repository-scoped static trip planner", async () => {
   );
 
   assert.match(scripts.join("\n"), /tile\.openstreetmap\.org/);
+  assert.match(scripts.join("\n"), /tile\.openstreetmap\.fr\/osmfr/);
   assert.match(scripts.join("\n"), /OpenStreetMap contributors/);
+  assert.match(scripts.join("\n"), /Tiles: OSM France/);
   assert.match(scripts.join("\n"), /images\/stops\//);
   assert.match(scripts.join("\n"), /images\/discovery\//);
   assert.match(scripts.join("\n"), /guangzhou-overview-map\.webp/);

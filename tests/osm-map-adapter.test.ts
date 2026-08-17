@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { JSDOM } from "jsdom";
 import { discoveryPlaces } from "../src/data/discovery";
 import {
@@ -27,7 +27,7 @@ describe("OSM adapter data contract", () => {
 });
 
 describe("OSM adapter browser integration", () => {
-  it("creates a Leaflet marker cluster map after dynamic imports", async () => {
+  it("keeps the primary OSM layer when another startup tile succeeds after one tile error", async () => {
     const dom = new JSDOM("<!doctype html><html><body></body></html>");
     const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;
     browserGlobals.window = dom.window;
@@ -52,10 +52,72 @@ describe("OSM adapter browser integration", () => {
       onTileError: () => {},
     });
 
+    const primaryTiles = container.querySelectorAll<HTMLImageElement>(
+      'img.leaflet-tile[src*="tile.openstreetmap.org"]',
+    );
+    expect(primaryTiles.length).toBeGreaterThan(1);
+
+    primaryTiles[0].dispatchEvent(new dom.window.Event("error"));
+    primaryTiles[1].dispatchEvent(new dom.window.Event("load"));
+    await Promise.resolve();
+
+    expect(
+      container.querySelector('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]'),
+    ).toBeNull();
+
     controller.focusPlace("chen-clan-academy", false);
     expect(container.querySelector('[role="button"][title="陈家祠"]')?.getAttribute("aria-label")).toBe(
       "地图位置 01：陈家祠",
     );
     expect(() => controller.destroy()).not.toThrow();
+  });
+
+  it("tries OSM France before the seven-second static fallback when the primary host hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      const dom = new JSDOM("<!doctype html><html><body></body></html>");
+      const browserGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+      browserGlobals.window = dom.window;
+      browserGlobals.document = dom.window.document;
+      browserGlobals.HTMLElement = dom.window.HTMLElement;
+      browserGlobals.Element = dom.window.Element;
+      browserGlobals.SVGElement = dom.window.SVGElement;
+
+      const container = dom.window.document.createElement("div");
+      Object.defineProperties(container, {
+        clientHeight: { value: 300 },
+        clientWidth: { value: 400 },
+      });
+      dom.window.document.body.append(container);
+      const controller = await createOsmMap({
+        container,
+        places: discoveryPlaces.slice(0, 1),
+        selectedId: null,
+        reducedMotion: false,
+        onMarkerSelect: () => {},
+        onFirstTileLoad: () => {},
+        onTileError: () => {},
+      });
+
+      expect(
+        container.querySelector('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]'),
+      ).toBeNull();
+      await vi.advanceTimersByTimeAsync(6999);
+      expect(
+        container.querySelector('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]'),
+      ).not.toBeNull();
+      const backupHosts = new Set(
+        [...container.querySelectorAll<HTMLImageElement>('img.leaflet-tile[src*="tile.openstreetmap.fr/osmfr"]')]
+          .map((tile) => new URL(tile.src).hostname),
+      );
+      expect(backupHosts.size).toBeGreaterThan(1);
+      const osmFranceCredit = container.querySelector<HTMLAnchorElement>(
+        'a[href="https://www.openstreetmap.fr/"]',
+      );
+      expect(osmFranceCredit?.textContent).toContain("Tiles: OSM France");
+      controller.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -1,7 +1,9 @@
 import type { DiscoveryPlace } from "./discovery-types";
 
 export const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+export const OSM_FRANCE_TILE_URL = "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png";
 export const OSM_ATTRIBUTION = "© OpenStreetMap contributors";
+export const OSM_FRANCE_ATTRIBUTION = "Tiles: OSM France";
 export const GUANGZHOU_BOUNDS: [[number, number], [number, number]] = [
   [22.45, 112.95],
   [23.95, 114.08],
@@ -53,19 +55,53 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
 
   const map = L.map(options.container, { scrollWheelZoom: false });
   let firstTileLoaded = false;
-  const tiles = L.tileLayer(OSM_TILE_URL, {
-    minZoom: 8,
-    maxZoom: 19,
-    attribution: `<a href="https://www.openstreetmap.org/copyright">${OSM_ATTRIBUTION}</a>`,
-  });
-
-  tiles.on("tileload", () => {
+  let usingBackupTiles = false;
+  let primaryFallbackTimeout: number | null = null;
+  const clearPrimaryFallbackTimeout = () => {
+    if (primaryFallbackTimeout !== null) {
+      window.clearTimeout(primaryFallbackTimeout);
+      primaryFallbackTimeout = null;
+    }
+  };
+  const onTileLoad = () => {
     if (!firstTileLoaded) {
       firstTileLoaded = true;
+      clearPrimaryFallbackTimeout();
       options.onFirstTileLoad();
     }
+  };
+  const createTileLayer = (url: string, attribution: string) => {
+    const layer = L.tileLayer(url, {
+      minZoom: 8,
+      maxZoom: 19,
+      attribution,
+    });
+    layer.on("tileload", onTileLoad);
+    return layer;
+  };
+  let tiles = createTileLayer(
+    OSM_TILE_URL,
+    `<a href="https://www.openstreetmap.org/copyright">${OSM_ATTRIBUTION}</a>`,
+  );
+  const switchToBackupTiles = () => {
+    if (firstTileLoaded || usingBackupTiles) {
+      return;
+    }
+
+    usingBackupTiles = true;
+    clearPrimaryFallbackTimeout();
+    map.removeLayer(tiles);
+    tiles = createTileLayer(
+      OSM_FRANCE_TILE_URL,
+      `<a href="https://www.openstreetmap.org/copyright">${OSM_ATTRIBUTION}</a> · <a href="https://www.openstreetmap.fr/">${OSM_FRANCE_ATTRIBUTION}</a>`,
+    );
+    tiles.on("tileerror", options.onTileError);
+    tiles.addTo(map);
+  };
+  tiles.on("tileerror", () => {
+    options.onTileError();
   });
-  tiles.on("tileerror", options.onTileError);
+  primaryFallbackTimeout = window.setTimeout(switchToBackupTiles, 3000);
   tiles.addTo(map);
 
   const markerClusterGroup = L.markerClusterGroup({
@@ -156,6 +192,7 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
       }
 
       destroyed = true;
+      clearPrimaryFallbackTimeout();
       map.remove();
     },
   };
