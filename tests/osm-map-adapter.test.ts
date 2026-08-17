@@ -37,6 +37,10 @@ describe("OSM adapter browser integration", () => {
     browserGlobals.SVGElement = dom.window.SVGElement;
 
     const container = dom.window.document.createElement("div");
+    Object.defineProperties(container, {
+      clientHeight: { value: 300 },
+      clientWidth: { value: 400 },
+    });
     dom.window.document.body.append(container);
     const controller = await createOsmMap({
       container,
@@ -48,6 +52,10 @@ describe("OSM adapter browser integration", () => {
       onTileError: () => {},
     });
 
+    controller.focusPlace("chen-clan-academy", false);
+    expect(container.querySelector('[role="button"][title="陈家祠"]')?.getAttribute("aria-label")).toBe(
+      "地图位置 01：陈家祠",
+    );
     expect(() => controller.destroy()).not.toThrow();
   });
 });

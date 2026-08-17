@@ -77,8 +77,9 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
 
   for (const place of options.places) {
     const index = String(place.index).padStart(2, "0");
+    const markerLabel = `地图位置 ${index}：${place.name}`;
     const marker = L.marker([place.coordinate.lat, place.coordinate.lng], {
-      alt: `地图位置 ${index}：${place.name}`,
+      alt: markerLabel,
       icon: L.divIcon({
         className: `osm-map-marker osm-map-marker--${place.kind}${place.id === options.selectedId ? " is-selected" : ""}`,
         html: `<span>${index}</span>`,
@@ -87,6 +88,7 @@ export async function createOsmMap(options: OsmMapOptions): Promise<OsmMapContro
       title: place.name,
     });
 
+    marker.on("add", () => marker.getElement()?.setAttribute("aria-label", markerLabel));
     marker.on("click", () => options.onMarkerSelect(place.id));
     markers.set(place.id, marker);
     markerClusterGroup.addLayer(marker);
