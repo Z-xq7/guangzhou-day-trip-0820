@@ -80,6 +80,12 @@ export function DiscoveryMap({
   selectPlaceRef.current = selectPlace;
 
   useEffect(() => {
+    setDismissedPanelId((dismissedId) => (
+      dismissedId && selectedId !== dismissedId ? null : dismissedId
+    ));
+  }, [selectedId]);
+
+  useEffect(() => {
     if (!enabled || !mapElement.current) {
       setLiveStatus("idle");
       return;

@@ -9,6 +9,10 @@ import { DiscoveryMap } from "../src/features/discovery/DiscoveryMap";
 import { DiscoveryPhoto } from "../src/features/discovery/DiscoveryPhoto";
 import { DiscoveryView } from "../src/features/discovery/DiscoveryView";
 import { defaultDiscoveryFilters } from "../src/features/discovery/discovery-logic";
+import type {
+  OsmMapController,
+  OsmMapOptions,
+} from "../src/features/discovery/osm-map-adapter";
 import type { DiscoveryFilters } from "../src/features/discovery/discovery-types";
 
 const { createOsmMapMock } = vi.hoisted(() => ({
@@ -19,17 +23,35 @@ vi.mock("../src/features/discovery/osm-map-adapter", () => ({
   createOsmMap: createOsmMapMock,
 }));
 
-const osmController = {
-  focusPlace: vi.fn(),
-  fitAllPlaces: vi.fn(),
-  fitGuangzhou: vi.fn(),
-  setDistanceLine: vi.fn(),
-  invalidateSize: vi.fn(),
-  destroy: vi.fn(),
-};
+function makeOsmController(): OsmMapController {
+  return {
+    focusPlace: vi.fn(),
+    fitAllPlaces: vi.fn(),
+    fitGuangzhou: vi.fn(),
+    setDistanceLine: vi.fn(),
+    invalidateSize: vi.fn(),
+    destroy: vi.fn(),
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
+function latestOsmOptions() {
+  const calls = createOsmMapMock.mock.calls;
+  return calls[calls.length - 1][0] as OsmMapOptions;
+}
+
+let osmController: OsmMapController;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  osmController = makeOsmController();
   createOsmMapMock.mockResolvedValue(osmController);
 });
 
@@ -186,6 +208,18 @@ describe("DiscoveryMap", () => {
     expect(screen.getByText("正在加载可缩放地图")).toBeVisible();
   });
 
+  it("announces readiness only after the adapter reports its first loaded tile", () => {
+    render(<DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />);
+
+    expect(screen.getByText("正在加载可缩放地图")).toBeVisible();
+    act(() => latestOsmOptions().onFirstTileLoad());
+
+    expect(screen.getByText("可缩放地图已就绪")).toBeVisible();
+    expect(screen.queryByText("正在加载可缩放地图")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "广州 30 个精选地点静态回退地图" }))
+      .toBeVisible();
+  });
+
   it("does not initialize the live layer when progressive enhancement is disabled", () => {
     render(
       <DiscoveryMap
@@ -200,6 +234,7 @@ describe("DiscoveryMap", () => {
       .toBeVisible();
     expect(screen.queryByText("正在加载可缩放地图")).not.toBeInTheDocument();
     expect(screen.queryByText("实时地图暂不可用")).not.toBeInTheDocument();
+    expect(createOsmMapMock).not.toHaveBeenCalled();
   });
 
   it("shows a selected place without a navigation entry and delegates its local actions", () => {
@@ -223,6 +258,51 @@ describe("DiscoveryMap", () => {
     fireEvent.click(within(panel).getByRole("button", { name: "关闭地图地点卡" }));
     expect(screen.queryByRole("complementary", { name: "地图所选地点：陈家祠" }))
       .not.toBeInTheDocument();
+  });
+
+  it("reopens a dismissed place after an external selection leaves and returns", () => {
+    const view = render(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图地点卡" }));
+
+    view.rerender(
+      <DiscoveryMap places={discoveryPlaces} selectedId="canton-tower" onSelect={vi.fn()} />,
+    );
+    expect(screen.getByRole("complementary", { name: "地图所选地点：广州塔" }))
+      .toBeVisible();
+
+    view.rerender(
+      <DiscoveryMap
+        places={discoveryPlaces}
+        selectedId="chen-clan-academy"
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("complementary", { name: "地图所选地点：陈家祠" }))
+      .toBeVisible();
+  });
+
+  it("destroys an initialization that resolves after the map unmounts", async () => {
+    const lateController = makeOsmController();
+    const initialization = deferred<OsmMapController>();
+    createOsmMapMock.mockReturnValueOnce(initialization.promise);
+    const view = render(
+      <DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />,
+    );
+
+    expect(createOsmMapMock).toHaveBeenCalledTimes(1);
+    view.unmount();
+    await act(async () => {
+      initialization.resolve(lateController);
+      await initialization.promise;
+    });
+
+    expect(lateController.destroy).toHaveBeenCalledTimes(1);
   });
 
   it("compares Chen Clan Academy with Canton Tower in an announced result", () => {
@@ -279,11 +359,17 @@ describe("DiscoveryMap", () => {
     expect(screen.queryByRole("button", { name: "互换 A/B" })).not.toBeInTheDocument();
   });
 
-  it("retains the fallback after seven seconds and offers a visible retry", async () => {
+  it("destroys the unavailable controller and reinitializes when retrying", async () => {
     vi.useFakeTimers();
+    const firstController = makeOsmController();
+    const retryController = makeOsmController();
+    createOsmMapMock
+      .mockResolvedValueOnce(firstController)
+      .mockResolvedValueOnce(retryController);
     render(<DiscoveryMap places={discoveryPlaces} selectedId={null} onSelect={vi.fn()} />);
 
     await act(async () => {
+      await Promise.resolve();
       await vi.advanceTimersByTimeAsync(7000);
     });
 
@@ -295,6 +381,12 @@ describe("DiscoveryMap", () => {
 
     fireEvent.click(within(status).getByRole("button", { name: "重试加载" }));
     expect(within(status).getByText("正在加载可缩放地图")).toBeVisible();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(firstController.destroy).toHaveBeenCalledTimes(1);
+    expect(createOsmMapMock).toHaveBeenCalledTimes(2);
+    expect(retryController.destroy).not.toHaveBeenCalled();
   });
 
   it("keeps all places in a semantic list and exposes keyboard-reachable controls", () => {
