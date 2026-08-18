@@ -16,6 +16,8 @@ import type {
   MobileView,
   Scenario,
 } from "../../data/types";
+import { discoveryPlaces } from "../../data/discovery";
+import { DiscoveryMap } from "../discovery/DiscoveryMap";
 import { summarizeBudget } from "./trip-logic";
 import { RouteDiagram } from "./RouteDiagram";
 import { StopDetail } from "./StopDetail";
@@ -341,6 +343,7 @@ export interface MapViewProps {
   placeUrl: string;
   nextNavigationUrl?: string;
   onSelectStop: (id: string) => void;
+  onOpenDiscoveryDetails?: (id: string) => void;
 }
 
 export function MapView({
@@ -352,7 +355,9 @@ export function MapView({
   placeUrl,
   nextNavigationUrl,
   onSelectStop,
+  onOpenDiscoveryDetails,
 }: MapViewProps) {
+  const [selectedAttractionId, setSelectedAttractionId] = useState<string | null>(null);
   const [copyResult, setCopyResult] = useState<{
     status: "idle" | "copied" | "manual";
     placeText: string | null;
@@ -387,10 +392,21 @@ export function MapView({
       aria-label="地图与导航"
       aria-hidden={isMobile && !isActive ? true : undefined}
     >
+      <section className="map-atlas-shell section-shell" aria-label="广州景点地图总览">
+        <DiscoveryMap
+          instanceId="map-view-atlas"
+          showIndex={false}
+          places={discoveryPlaces}
+          selectedId={selectedAttractionId}
+          onSelect={setSelectedAttractionId}
+          onOpenDetails={onOpenDiscoveryDetails}
+        />
+      </section>
+
       <section className="route-section section-shell" aria-labelledby="map-title">
         <div className="section-heading">
-          <div><p className="eyebrow">ROUTE AT A GLANCE</p><h2 id="map-title">路线总览</h2></div>
-          <p>点击路线图选择站点；示意图不代表真实地理比例。</p>
+          <div><p className="eyebrow">YOUR DAY ROUTE</p><h2 id="map-title">8 月 20 日路线顺序</h2></div>
+          <p>上方先看景点真实分布；这里再看当天游览先后。</p>
         </div>
         <div className="route-layout">
           <div className="route-diagram-column">

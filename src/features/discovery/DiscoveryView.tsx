@@ -145,8 +145,8 @@ export function DiscoveryView({
             <strong>21 个景点 · 9 家粤味</strong>
             <span>真实授权照片</span>
             <span>站内透明评分</span>
-            <span>可缩放全城地图</span>
-            <span>两点直线距离比较</span>
+            <span>静态双层景点地图</span>
+            <span>中文名称直接标注</span>
           </div>
         </div>
         <div className="discovery-featured" aria-label="六个编辑精选">

@@ -68,14 +68,21 @@ test("ships 30 optimized local discovery photos with complete attribution", asyn
   }
 });
 
-test("ships a readable locally cached Guangzhou overview map", async () => {
-  const mapUrl = new URL("../public/images/discovery/guangzhou-overview-map.webp", import.meta.url);
-  const info = await stat(mapUrl);
-  assert.ok(info.size > 20_000, "map is unexpectedly empty");
-  assert.ok(info.size <= 500 * 1024, "map exceeds 500 KiB");
+test("ships a readable core-city map and a high-resolution Guangzhou-wide map", async () => {
+  const maps = [
+    { file: "guangzhou-core-map.webp", width: 1890, height: 1224, maxBytes: 700 * 1024 },
+    { file: "guangzhou-full-map.webp", width: 1600, height: 2165, maxBytes: 900 * 1024 },
+  ];
 
-  const metadata = await sharp(fileURLToPath(mapUrl), { failOn: "error" }).metadata();
-  assert.equal(metadata.format, "webp");
-  assert.equal(metadata.width, 1440);
-  assert.equal(metadata.height, 900);
+  for (const expected of maps) {
+    const mapUrl = new URL(`../public/images/discovery/${expected.file}`, import.meta.url);
+    const info = await stat(mapUrl);
+    assert.ok(info.size > 50_000, `${expected.file} is unexpectedly empty`);
+    assert.ok(info.size <= expected.maxBytes, `${expected.file} is too large`);
+
+    const metadata = await sharp(fileURLToPath(mapUrl), { failOn: "error" }).metadata();
+    assert.equal(metadata.format, "webp");
+    assert.equal(metadata.width, expected.width);
+    assert.equal(metadata.height, expected.height);
+  }
 });

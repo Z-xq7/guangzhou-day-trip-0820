@@ -50,32 +50,16 @@ test("builds a repository-scoped static trip planner", async () => {
       .map((url) => readFile(new URL(url.slice(repositoryBase.length), distRoot), "utf8")),
   );
 
-  assert.match(scripts.join("\n"), /tile\.openstreetmap\.org/);
-  assert.match(scripts.join("\n"), /tile\.openstreetmap\.fr\/osmfr/);
-  assert.match(scripts.join("\n"), /OpenStreetMap contributors/);
-  assert.match(scripts.join("\n"), /Tiles: OSM France/);
+  assert.doesNotMatch(scripts.join("\n"), /tile\.openstreetmap\.(?:org|fr)/);
   assert.match(scripts.join("\n"), /images\/stops\//);
   assert.match(scripts.join("\n"), /images\/discovery\//);
-  assert.match(scripts.join("\n"), /guangzhou-overview-map\.webp/);
+  assert.match(scripts.join("\n"), /guangzhou-core-map\.webp/);
+  assert.match(scripts.join("\n"), /guangzhou-full-map\.webp/);
   const bundledCss = styles.join("\n");
-  assert.match(bundledCss, /\.leaflet-container/);
-  assert.match(bundledCss, /\.osm-map-marker\{[^}]*width:44px[^}]*height:44px/);
-  assert.match(bundledCss, /\.osm-map-marker--attraction/);
-  assert.match(bundledCss, /\.osm-map-marker--food/);
-  assert.match(bundledCss, /\.osm-map-marker\.is-selected/);
-  assert.match(bundledCss, /\.osm-map-marker:focus-visible/);
-  assert.match(bundledCss, /\.osm-map-cluster\{[^}]*width:44px[^}]*height:44px/);
-  assert.match(bundledCss, /\.osm-map-cluster--small/);
-  assert.match(bundledCss, /\.osm-map-cluster--medium/);
-  assert.match(bundledCss, /\.osm-map-cluster--large/);
-  const mobileCss = bundledCss.match(
-    /@media \(width<=760px\)\{([\s\S]*?)\}@media \(width<=430px\)/,
-  )?.[1];
-  assert.ok(mobileCss, "expected a bundled mobile stylesheet");
-  assert.match(
-    mobileCss,
-    /\.discovery-map-live-layer \.leaflet-bottom\{bottom:calc\(64px \+ env\(safe-area-inset-bottom\)\)\}/,
-  );
+  assert.match(bundledCss, /\.discovery-static-marker/);
+  assert.match(bundledCss, /\.discovery-static-map--core/);
+  assert.match(bundledCss, /\.discovery-static-map--wide/);
+  assert.doesNotMatch(bundledCss, /\.leaflet-container|\.osm-map-marker|\.osm-map-cluster/);
   assert.doesNotMatch(scripts.join("\n"), /maps\.googleapis\.com|webapi\.amap\.com/);
   assert.doesNotMatch(scripts.join("\n"), /upload\.wikimedia\.org/i);
   for (const file of photoFiles) {
@@ -89,7 +73,8 @@ test("builds a repository-scoped static trip planner", async () => {
     assert.ok(credit, `missing discovery photo ${prefix}`);
     await access(new URL(credit.file, discoveryDirectory));
   }
-  await access(new URL("guangzhou-overview-map.webp", discoveryDirectory));
+  await access(new URL("guangzhou-core-map.webp", discoveryDirectory));
+  await access(new URL("guangzhou-full-map.webp", discoveryDirectory));
   const notices = await readFile(new URL("THIRD_PARTY_NOTICES.txt", distRoot), "utf8");
   const [leafletLicense, markerClusterLicense] = await Promise.all([
     readFile(new URL("../node_modules/leaflet/LICENSE", import.meta.url), "utf8"),

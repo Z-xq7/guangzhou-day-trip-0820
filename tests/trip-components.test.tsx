@@ -209,6 +209,26 @@ describe("TripViews", () => {
     );
   });
 
+  it("puts the labeled Guangzhou attraction maps before the itinerary diagram", () => {
+    render(<MapView {...mapProps} />);
+
+    const mapView = screen.getByRole("region", { name: "地图与导航" });
+    const coreMap = within(mapView).getByRole("img", {
+      name: "广州核心城区景点分布图",
+    });
+    const wideMap = within(mapView).getByRole("img", {
+      name: "广州全域景点分布图",
+    });
+    const atlas = within(mapView).getByRole("region", { name: "广州景点分布地图" });
+    const itinerary = within(mapView).getByRole("heading", { name: "8 月 20 日路线顺序" });
+
+    expect(within(atlas).getAllByRole("button", { name: /位置 \d+：/ })).toHaveLength(21);
+    expect(coreMap.compareDocumentPosition(itinerary) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+    expect(wideMap.compareDocumentPosition(itinerary) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+  });
+
   it("derives exactly nine safe centralized photo credits from the itinerary", () => {
     render(<MyTripView {...myTripProps} />);
     const creditRegion = screen.getByRole("region", { name: "图片来源" });
@@ -388,6 +408,16 @@ describe("MobileAppShell", () => {
 });
 
 describe("TripPlanner", () => {
+  it("keeps the mobile attraction map unobstructed by the fixed next-stop bar", () => {
+    installMatchMedia(true);
+    window.history.replaceState(null, "", "#map");
+
+    render(<TripPlanner />);
+
+    expect(screen.getByRole("region", { name: "广州景点分布地图" })).toBeVisible();
+    expect(screen.queryByLabelText("下一站快捷操作")).not.toBeInTheDocument();
+  });
+
   it("restores a direct discovery detail with its filters and mobile owner", () => {
     installMatchMedia(true);
     window.history.replaceState(

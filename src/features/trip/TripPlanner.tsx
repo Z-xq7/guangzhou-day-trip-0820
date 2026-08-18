@@ -338,6 +338,7 @@ export function TripPlanner() {
           selectedNextStop.navigationMode,
         ) : undefined}
         onSelectStop={selectStop}
+        onOpenDiscoveryDetails={setSelectedDiscoveryPlace}
       />
       <TodoView
         isActive={tripState.activeView === "todo"}
@@ -359,7 +360,9 @@ export function TripPlanner() {
         onReset={resetLocalTrip}
       />
 
-      {(!isMobile || tripState.activeView !== "route") && tripState.activeView !== "discover" ? (
+      {(!isMobile || tripState.activeView !== "route")
+        && tripState.activeView !== "discover"
+        && tripState.activeView !== "map" ? (
         <NextStopBar
           nextStop={progressNextStop}
           navigationUrl={buildBaiduMapUrl(

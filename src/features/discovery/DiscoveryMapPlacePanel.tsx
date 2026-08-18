@@ -6,20 +6,12 @@ import type { DiscoveryPlace } from "./discovery-types";
 
 export interface DiscoveryMapPlacePanelProps {
   place: DiscoveryPlace;
-  origin: DiscoveryPlace | null;
-  destination: DiscoveryPlace | null;
-  onSetOrigin(id: string): void;
-  onSetDestination(id: string): void;
   onOpenDetails(id: string): void;
   onClose(): void;
 }
 
 export function DiscoveryMapPlacePanel({
   place,
-  origin,
-  destination,
-  onSetOrigin,
-  onSetDestination,
   onOpenDetails,
   onClose,
 }: DiscoveryMapPlacePanelProps) {
@@ -49,22 +41,6 @@ export function DiscoveryMapPlacePanel({
           <button type="button" onClick={() => onOpenDetails(place.id)}>
             查看{place.name}完整介绍
           </button>
-          <button
-            type="button"
-            aria-pressed={origin?.id === place.id}
-            onClick={() => onSetOrigin(place.id)}
-          >
-            设{place.name}为距离起点
-          </button>
-          {origin && origin.id !== place.id ? (
-            <button
-              type="button"
-              aria-pressed={destination?.id === place.id}
-              onClick={() => onSetDestination(place.id)}
-            >
-              比较{origin.name}与{place.name}
-            </button>
-          ) : null}
         </div>
       </div>
     </aside>
